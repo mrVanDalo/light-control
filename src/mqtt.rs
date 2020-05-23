@@ -4,9 +4,9 @@
 
 use futures::future::Future;
 use paho_mqtt::{AsyncClient, Message};
+use std::process;
 use std::rc::Rc;
 use std::time::Duration;
-use std::{process };
 
 pub struct MqttClient {
     pub cli: AsyncClient,
@@ -17,7 +17,7 @@ impl MqttClient {
         host: String,
         username: String,
         password: String,
-        message_callback: fn(&AsyncClient, Option<Message>),
+        message_callback: Box<dyn FnMut(&AsyncClient, Option<Message>) + 'static>,
         topics: Vec<Rc<String>>,
     ) -> Self {
         // Create the client. Use an ID for a persistent session.

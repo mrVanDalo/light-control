@@ -11,22 +11,26 @@ mod entities;
 mod mqtt;
 
 use crate::configuration::hardcoded_config;
+use paho_mqtt::{AsyncClient, Message};
 
 fn main() {
     let home = hardcoded_config();
     let topics_to_subscribe = home.get_topics();
 
+    let callback = move |_cli: &AsyncClient, msg: Option<Message>| {
+        if let Some(msg) = msg {
+            let topic = msg.topic();
+            let payload_str = msg.payload_str();
+            println!("{} - {}", topic, payload_str);
+            println!("{}", home.name);
+        }
+    };
+
     let _mqtt_client = MqttClient::new(
         "tcp://pepe.private:1883".to_string(),
         "homeassistant".to_string(),
         "hallo".to_string(),
-        |_cli, msg| {
-            if let Some(msg) = msg {
-                let topic = msg.topic();
-                let payload_str = msg.payload_str();
-                println!("{} - {}", topic, payload_str);
-            }
-        },
+        Box::new(callback),
         topics_to_subscribe,
     );
 

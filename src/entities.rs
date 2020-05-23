@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 pub struct Home {
+    pub name: String,
     pub rooms: HashMap<String, Rc<Room>>,
 }
 
