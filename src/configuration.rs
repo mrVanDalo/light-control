@@ -11,11 +11,13 @@ pub fn hardcoded_config() -> Rc<Configuration> {
             sensors: vec![
                 Rc::new(Sensor {
                     topic: "zigbee2mqtt/motion_sensor_2".to_string(),
-                    path: vec!["occupancy".to_string()],
+                    key: "occupancy".to_string(),
+                    presents_negator: false,
                 }),
                 Rc::new(Sensor {
                     topic: "zigbee2mqtt/motion_sensor_7".to_string(),
-                    path: vec!["occupancy".to_string()],
+                    key: "occupancy".to_string(),
+                    presents_negator: false,
                 }),
             ],
             switches: vec![Rc::new(Switch {
@@ -28,7 +30,8 @@ pub fn hardcoded_config() -> Rc<Configuration> {
         Rc::new(Room {
             sensors: vec![Rc::new(Sensor {
                 topic: "zigbee2mqtt/motion_sensor_1".to_string(),
-                path: vec!["occupancy".to_string()],
+                key: "occupancy".to_string(),
+                presents_negator: false,
             })],
             switches: vec![],
         }),
@@ -39,11 +42,13 @@ pub fn hardcoded_config() -> Rc<Configuration> {
             sensors: vec![
                 Rc::new(Sensor {
                     topic: "zigbee2mqtt/motion_sensor_4".to_string(),
-                    path: vec!["occupancy".to_string()],
+                    key: "occupancy".to_string(),
+                    presents_negator: false,
                 }),
                 Rc::new(Sensor {
                     topic: "zigbee2mqtt/motion_sensor_5".to_string(),
-                    path: vec!["occupancy".to_string()],
+                    key: "occupancy".to_string(),
+                    presents_negator: false,
                 }),
             ],
             switches: vec![Rc::new(Switch {
@@ -57,11 +62,13 @@ pub fn hardcoded_config() -> Rc<Configuration> {
             sensors: vec![
                 Rc::new(Sensor {
                     topic: "zigbee2mqtt/motion_sensor_5".to_string(),
-                    path: vec!["occupancy".to_string()],
+                    key: "occupancy".to_string(),
+                    presents_negator: false,
                 }),
                 Rc::new(Sensor {
                     topic: "zigbee2mqtt/motion_sensor_8".to_string(),
-                    path: vec!["occupancy".to_string()],
+                    key: "occupancy".to_string(),
+                    presents_negator: false,
                 }),
             ],
             switches: vec![Rc::new(Switch {
@@ -76,11 +83,13 @@ pub fn hardcoded_config() -> Rc<Configuration> {
             sensors: vec![
                 Rc::new(Sensor {
                     topic: "zigbee2mqtt/door_sensor_2".to_string(),
-                    path: vec!["occupancy".to_string()],
+                    key: "contact".to_string(),
+                    presents_negator: true,
                 }),
                 Rc::new(Sensor {
                     topic: "zigbee2mqtt/door_sensor_4".to_string(),
-                    path: vec!["occupancy".to_string()],
+                    key: "contact".to_string(),
+                    presents_negator: true,
                 }),
             ],
             switches: vec![

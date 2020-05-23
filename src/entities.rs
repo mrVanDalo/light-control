@@ -1,3 +1,5 @@
+use crate::entities::Presents::Present;
+use serde_json::Value;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -11,7 +13,7 @@ pub struct Configuration {
 
     /// weather or not presents in a room is detected
     /// room -> state
-    pub presents: HashMap<String, bool>,
+    pub presents: HashMap<String, Presents>,
 
     /// device -> room
     pub topic_to_room: HashMap<String, String>,
@@ -24,6 +26,7 @@ impl Configuration {
     pub fn get_topics(&self) -> Vec<Rc<String>> {
         self.home.get_topics()
     }
+
     pub fn new(home: Rc<Home>) -> Self {
         let mut presents = HashMap::new();
         let mut topic_to_room = HashMap::new();
@@ -33,7 +36,7 @@ impl Configuration {
         let a = home.clone();
 
         for (name, room) in a.clone().rooms.iter() {
-            presents.insert(name.clone(), false);
+            presents.insert(name.clone(), Presents::Absent);
             for switch in room.switches.iter() {
                 topic_to_room.insert(switch.topic.clone(), name.clone());
                 all_switch.push(switch.clone());
@@ -54,19 +57,29 @@ impl Configuration {
         }
     }
 
+    pub fn get_sensor_for_topic(&self, topic: String) -> Option<Rc<Sensor>> {
+        for sensor in self.all_sensors.iter() {
+            if sensor.topic == topic {
+                return Some(sensor.clone());
+            }
+        }
+        return None;
+    }
+
+    pub fn get_switch_for_topic(&self, topic: String) -> Option<Rc<Switch>> {
+        for switch in self.all_switch.iter() {
+            if switch.topic == topic {
+                return Some(switch.clone());
+            }
+        }
+        return None;
+    }
+
     // dummy debug function
     pub fn print_room_state(&self) {
         println!("------------------  [ room state ]");
         for (room, presents) in self.presents.iter() {
-            println!(
-                "{} : {}",
-                room,
-                if presents.clone() {
-                    "presents"
-                } else {
-                    "absents"
-                }
-            );
+            println!("{} : {:?}", room, presents);
         }
     }
 }
@@ -113,11 +126,51 @@ impl Room {
 pub struct Sensor {
     pub topic: String,
     /// json path to read the state
-    pub path: Vec<String>,
+    pub key: String,
+
+    /// sometimes sensors send false if presents
+    /// this options negates presences.
+    pub presents_negator: bool,
 }
 
 /// A Switch is a device that receives commands
 /// like lights on/off
 pub struct Switch {
     pub topic: String,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum Presents {
+    /// Presents is detected
+    Present,
+    /// Absents is detected
+    Absent,
+}
+
+impl Presents {
+    pub fn negate(presents: Presents) -> Presents {
+        match presents {
+            Presents::Absent => Presents::Present,
+            Presents::Present => Presents::Absent,
+        }
+    }
+    pub fn json_value_to_presents(value: Value) -> Option<Presents> {
+        match value {
+            Value::Bool(state) => {
+                if state {
+                    Some(Presents::Present)
+                } else {
+                    Some(Presents::Absent)
+                }
+            }
+            Value::String(state) => {
+                if state.to_ascii_lowercase() == "on" {
+                    Some(Presents::Present)
+                } else {
+                    Some(Presents::Absent)
+                }
+            }
+            _ => None,
+        }
+    }
 }
