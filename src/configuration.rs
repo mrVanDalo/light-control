@@ -1,9 +1,9 @@
-use crate::entities::{Home, Room, Sensor, Switch};
+use crate::entities::{Configuration, Home, Room, Sensor, Switch};
 use std::collections::HashMap;
 use std::rc::Rc;
 
 /// hard coded for now
-pub fn hardcoded_config() -> Rc<Home> {
+pub fn hardcoded_config() -> Rc<Configuration> {
     let mut rooms = HashMap::new();
     rooms.insert(
         "bed_room".to_string(),
@@ -94,8 +94,5 @@ pub fn hardcoded_config() -> Rc<Home> {
         }),
     );
 
-    Rc::new(Home {
-        name: "test-room".to_string(),
-        rooms,
-    })
+    Rc::new(Configuration::new(Rc::new(Home { rooms })))
 }

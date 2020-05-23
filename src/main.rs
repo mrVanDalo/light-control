@@ -14,15 +14,21 @@ use crate::configuration::hardcoded_config;
 use paho_mqtt::{AsyncClient, Message};
 
 fn main() {
-    let home = hardcoded_config();
-    let topics_to_subscribe = home.get_topics();
+    let configuration = hardcoded_config();
+    let topics_to_subscribe = configuration.get_topics();
+
+    let test = configuration.clone();
 
     let callback = move |_cli: &AsyncClient, msg: Option<Message>| {
         if let Some(msg) = msg {
             let topic = msg.topic();
             let payload_str = msg.payload_str();
-            println!("{} - {}", topic, payload_str);
-            println!("{}", home.name);
+            println!(
+                "{}: {} - {}",
+                configuration.topic_to_room.get(topic).unwrap(),
+                topic,
+                payload_str
+            );
         }
     };
 
@@ -36,6 +42,7 @@ fn main() {
 
     // Just wait for incoming messages.
     loop {
-        thread::sleep(Duration::from_millis(1000));
+        // test.print_room_state();
+        thread::sleep(Duration::from_secs(10));
     }
 }
