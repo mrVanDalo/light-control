@@ -2,24 +2,16 @@
 //extern crate log;
 //extern crate paho_mqtt;
 
-use futures::future::Future;
-use paho_mqtt::{AsyncClient, Message};
+use paho_mqtt::Client;
 use std::process;
-use std::rc::Rc;
 use std::time::Duration;
 
 pub struct MqttClient {
-    pub cli: AsyncClient,
+    pub cli: Client,
 }
 
 impl MqttClient {
-    pub fn new(
-        host: String,
-        username: String,
-        password: String,
-        message_callback: Box<dyn FnMut(&AsyncClient, Option<Message>) + 'static>,
-        topics: Vec<Rc<String>>,
-    ) -> Self {
+    pub fn new(host: String, username: String, password: String, topics: Vec<&String>) -> Self {
         // Create the client. Use an ID for a persistent session.
         // A real system should try harder to use a unique ID.
         let create_opts = paho_mqtt::CreateOptionsBuilder::new()
@@ -28,14 +20,10 @@ impl MqttClient {
             .finalize();
 
         // Create the client connection
-        let mut cli = paho_mqtt::AsyncClient::new(create_opts).unwrap_or_else(|e| {
+        let cli = paho_mqtt::Client::new(create_opts).unwrap_or_else(|e| {
             println!("Error creating the client: {:?}", e);
             process::exit(1);
         });
-
-        // Attach a closure to the client to receive callback
-        // on incoming messages.
-        cli.set_message_callback(message_callback);
 
         // Define the set of options for the connection
         let lwt = paho_mqtt::Message::new("rust-io/light-control", "connection lost", 1);
@@ -51,13 +39,13 @@ impl MqttClient {
 
         // Make the connection to the broker
         println!("Connecting to the MQTT server...");
-        if let Err(err) = cli.connect(conn_opts).wait() {
+        if let Err(err) = cli.connect(conn_opts) {
             eprintln!("Unable to connect: {}", err);
             process::exit(1);
         }
 
         for topic in topics {
-            cli.subscribe(topic.as_str(), 0);
+            cli.subscribe(topic.as_str(), 0).unwrap();
         }
 
         Self { cli }
