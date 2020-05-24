@@ -1,0 +1,19 @@
+[package]
+name = "rust-iot"
+version = "0.1.0"
+authors = ["Ingolf Wagner <contact@ingolf-wagner.de>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = "0.4.8"
+env_logger = "0.7.1"
+serde_json = "1.0"
+futures = "0.1"
+
+
+[dependencies.paho-mqtt]
+version = "0.6"
+defaul-features = false
+features = ["bundled"]
