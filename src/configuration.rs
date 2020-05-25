@@ -5,7 +5,17 @@ use std::collections::HashSet;
 extern crate mustache;
 
 impl Configuration {
-    pub fn update_sensor(&mut self, topic: &str, state: Presents) {
+    pub fn update_switch(&mut self, topic: &str, state: SwitchState) {
+        for switch in self.switches.iter_mut() {
+            if switch.topic == topic {
+                switch.state = state;
+                println!("set {} -> {:?}", switch.topic, switch.state);
+                return;
+            }
+        }
+    }
+
+    pub fn update_sensor(&mut self, topic: &str, state: SensorState) {
         for sensor in self.sensors.iter_mut() {
             if sensor.topic == topic {
                 sensor.state = state;
@@ -35,26 +45,55 @@ impl Configuration {
 
     // dummy debug function
     pub fn print_room_state(&self) {
-        println!("------------------  [ room state ]");
-        let rooms = self.rooms();
+        let rooms = self.get_rooms();
+        println!("");
+        println!("");
         for room in rooms {
-            let state = self.room_state(&room);
-            println!("{} -> {:?}", room, state);
+            let state = self.get_room_sensor_state(&room);
+            println!("");
+            println!("{} ({:?})", room, state);
+            println!("--------------------");
+            for sensor in self.get_sensors_for_room(room) {
+                println!(" {:<30}: {:?}", sensor.topic, sensor.state);
+            }
+            for switch in self.get_switches_for_room(room) {
+                println!(" {:<30}: {:?}", switch.topic, switch.state);
+            }
         }
     }
 
-    pub fn room_state(&self, room: &String) -> Presents {
+    pub fn get_sensors_for_room(&self, room: &String) -> Vec<&Sensor> {
+        let mut result = Vec::new();
         for sensor in self.sensors.iter() {
             if sensor.rooms.contains(room) {
-                if sensor.state == Presents::Present {
-                    return Presents::Present;
+                result.push(sensor);
+            }
+        }
+        result
+    }
+
+    pub fn get_switches_for_room(&self, room: &String) -> Vec<&Switch> {
+        let mut result = Vec::new();
+        for switch in self.switches.iter() {
+            if switch.rooms.contains(room) {
+                result.push(switch);
+            }
+        }
+        result
+    }
+
+    pub fn get_room_sensor_state(&self, room: &String) -> SensorState {
+        for sensor in self.sensors.iter() {
+            if sensor.rooms.contains(room) {
+                if sensor.state == SensorState::Present {
+                    return SensorState::Present;
                 }
             }
         }
-        Presents::Absent
+        SensorState::Absent
     }
 
-    pub fn rooms(&self) -> Vec<&String> {
+    pub fn get_rooms(&self) -> Vec<&String> {
         let mut rooms = HashSet::new();
         for sensor in self.sensors.iter() {
             for room in sensor.rooms.iter() {
@@ -65,6 +104,7 @@ impl Configuration {
         for room in rooms.iter() {
             result.push(*room);
         }
+        result.sort();
         result
     }
 
@@ -84,9 +124,9 @@ impl Configuration {
             .get_sensor_for_topic(topic.to_string())
             .map(|sensor| {
                 let value = &payload[&sensor.key];
-                let presents = Presents::json_value_to_presents(value);
+                let presents = SensorState::json_value_to_sensor_state(value);
                 if sensor.presents_negator {
-                    presents.map(|presents| Presents::negate(presents))
+                    presents.map(|presents| SensorState::negate(presents))
                 } else {
                     presents
                 }
@@ -97,6 +137,22 @@ impl Configuration {
         }
 
         self.update_sensor(topic, sensor_presents.unwrap());
+    }
+
+    pub fn update_switch_for_topic(&mut self, topic: &str, payload: &Value) {
+        let switch_presents = self
+            .get_switch_for_topic(topic.to_string())
+            .map(|switch| {
+                let value = &payload[&switch.key];
+                let presents = SensorState::json_value_to_switch_state(value);
+                presents
+            })
+            .flatten();
+        if switch_presents.is_none() {
+            return;
+        }
+
+        self.update_switch(topic, switch_presents.unwrap());
     }
 }
 
@@ -113,14 +169,14 @@ pub struct Sensor {
     pub topic: String,
     /// json path to read the state
     pub key: String,
-    /// sometimes sensors send false if presents
-    /// this options negates presences.
-    pub presents_negator: bool,
-    /// state to the sensor
-    pub state: Presents,
     /// rooms that should be considered present when
     /// when this sensor is triggered
     pub rooms: Vec<String>,
+    /// state to the sensor
+    pub state: SensorState,
+    /// sometimes sensors send false if presents
+    /// this options negates presences.
+    pub presents_negator: bool,
 }
 
 /// A Switch is a device that receives commands
@@ -128,12 +184,14 @@ pub struct Sensor {
 pub struct Switch {
     /// uniq topic to listen for the switch
     pub topic: String,
-    /// rooms this switch is placed
-    pub rooms: Vec<String>,
-    /// command control
-    pub command: SwitchCommand,
     /// key for state
     pub key: String,
+    /// rooms this switch is placed
+    pub rooms: Vec<String>,
+    /// state of the switch
+    pub state: SwitchState,
+    /// command control
+    pub command: SwitchCommand,
 }
 
 impl Switch {
@@ -148,6 +206,9 @@ pub struct SwitchCommand {
     /// * state : on/off (see on off statement)
     /// * brightness : 0 - 255
     pub command: String,
+    /// command to get state of the device
+    /// useful at program start.
+    pub init_command: Option<String>,
     /// topic to send the command under
     pub topic: String,
     /// string to send for state argument to run switch on
@@ -156,6 +217,7 @@ pub struct SwitchCommand {
     pub off: String,
 }
 
+#[derive(Debug)]
 pub enum SwitchState {
     On,
     Off,
@@ -218,34 +280,57 @@ mod switch_tests {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub enum Presents {
+pub enum SensorState {
     /// Presents is detected
     Present,
     /// Absents is detected
     Absent,
 }
 
-impl Presents {
-    pub fn negate(presents: Presents) -> Presents {
+impl SensorState {
+    pub fn negate(presents: SensorState) -> SensorState {
         match presents {
-            Presents::Absent => Presents::Present,
-            Presents::Present => Presents::Absent,
+            SensorState::Absent => SensorState::Present,
+            SensorState::Present => SensorState::Absent,
         }
     }
-    pub fn json_value_to_presents(value: &Value) -> Option<Presents> {
+
+    pub fn json_value_to_sensor_state(value: &Value) -> Option<SensorState> {
+        use SensorState::{Absent, Present};
         match value {
             Value::Bool(state) => {
                 if *state {
-                    Some(Presents::Present)
+                    Some(Present)
                 } else {
-                    Some(Presents::Absent)
+                    Some(Absent)
                 }
             }
             Value::String(state) => {
                 if state.to_ascii_lowercase() == "on" {
-                    Some(Presents::Present)
+                    Some(Present)
                 } else {
-                    Some(Presents::Absent)
+                    Some(Absent)
+                }
+            }
+            _ => None,
+        }
+    }
+
+    pub fn json_value_to_switch_state(value: &Value) -> Option<SwitchState> {
+        use SwitchState::{Off, On};
+        match value {
+            Value::Bool(state) => {
+                if *state {
+                    Some(On)
+                } else {
+                    Some(Off)
+                }
+            }
+            Value::String(state) => {
+                if state.to_ascii_lowercase() == "on" {
+                    Some(On)
+                } else {
+                    Some(Off)
                 }
             }
             _ => None,
