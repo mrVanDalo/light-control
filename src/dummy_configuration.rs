@@ -1,4 +1,4 @@
-use crate::configuration::{Configuration, Presents, Sensor, Switch};
+use crate::configuration::{Configuration, Presents, Sensor, Switch, SwitchCommand};
 
 /// hard coded for now
 pub fn hardcoded_config() -> Configuration {
@@ -75,27 +75,26 @@ pub fn hardcoded_config() -> Configuration {
         },
     ];
     let switches = vec![
-        Switch {
-            topic: "zigbee2mqtt/light_3".to_string(),
-            rooms: vec!["bed_room".to_string()],
-        },
-        Switch {
-            topic: "zigbee2mqtt/light_3".to_string(),
-            rooms: vec!["living_room".to_string()],
-        },
-        Switch {
-            topic: "zigbee2mqtt/light_3".to_string(),
-            rooms: vec!["bath_room".to_string()],
-        },
-        Switch {
-            topic: "zigbee2mqtt/light_1".to_string(),
-            rooms: vec!["floor_room".to_string()],
-        },
-        Switch {
-            topic: "zigbee2mqtt/light_2".to_string(),
-            rooms: vec!["floor_room".to_string()],
-        },
+        create_switch("light_1", vec!["floor_room".to_string()]),
+        create_switch("light_2", vec!["floor_room".to_string()]),
+        create_switch("light_3", vec!["living_room".to_string()]),
+        create_switch("light_4", vec!["bath_room".to_string()]),
+        create_switch("light_8", vec!["bed_room".to_string()]),
     ];
 
     Configuration { switches, sensors }
+}
+
+fn create_switch(name: &str, rooms: Vec<String>) -> Switch {
+    Switch {
+        topic: "zigbee2mqtt/".to_string() + name,
+        rooms: rooms,
+        key: "state".to_string(),
+        command: SwitchCommand {
+            topic: ("zigbee2mqtt/".to_string() + name).to_string() + "/set",
+            command: r#"{"state":"{{state}}","brightness":{{brightness}}}"#.to_string(),
+            on: "ON".to_string(),
+            off: "OFF".to_string(),
+        },
+    }
 }

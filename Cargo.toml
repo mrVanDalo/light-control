@@ -11,6 +11,7 @@ log = "0.4.8"
 env_logger = "0.7.1"
 serde_json = "1.0"
 futures = "0.1"
+mustache = "*"
 
 
 [dependencies.paho-mqtt]
