@@ -126,6 +126,44 @@ impl Configuration {
         topics
     }
 
+    pub(crate) fn get_update_sensor_for_topic(
+        &mut self,
+        topic: &str,
+        payload: &Value,
+    ) -> Option<(String, SensorState)> {
+        let sensor_state = self
+            .get_sensor_for_topic(topic.to_string())
+            .map(|sensor| {
+                let value = &payload[&sensor.key];
+                let presents = SensorState::json_value_to_sensor_state(value);
+                let state = if sensor.presents_negator {
+                    presents.map(|presents| SensorState::negate(presents))
+                } else {
+                    presents
+                };
+                state.map(|state| (sensor.topic.clone(), state))
+            })
+            .flatten();
+
+        sensor_state
+    }
+    pub(crate) fn get_update_switch_for_topic(
+        &mut self,
+        topic: &str,
+        payload: &Value,
+    ) -> Option<(String, SwitchState)> {
+        let switch_state = self
+            .get_switch_for_topic(topic.to_string())
+            .map(|switch| {
+                let value = &payload[&switch.key];
+                let state = SwitchState::json_value_to_switch_state(value);
+                state.map(|state| (switch.topic.clone(), state))
+            })
+            .flatten();
+
+        switch_state
+    }
+
     pub(crate) fn update_sensor_for_topic(&mut self, topic: &str, payload: &Value) {
         let sensor_presents = self
             .get_sensor_for_topic(topic.to_string())
@@ -151,7 +189,7 @@ impl Configuration {
             .get_switch_for_topic(topic.to_string())
             .map(|switch| {
                 let value = &payload[&switch.key];
-                let presents = SensorState::json_value_to_switch_state(value);
+                let presents = SwitchState::json_value_to_switch_state(value);
                 presents
             })
             .flatten();
@@ -217,27 +255,6 @@ impl SensorState {
             _ => None,
         }
     }
-
-    pub fn json_value_to_switch_state(value: &Value) -> Option<SwitchState> {
-        use SwitchState::{Off, On};
-        match value {
-            Value::Bool(state) => {
-                if *state {
-                    Some(On)
-                } else {
-                    Some(Off)
-                }
-            }
-            Value::String(state) => {
-                if state.to_ascii_lowercase() == "on" {
-                    Some(On)
-                } else {
-                    Some(Off)
-                }
-            }
-            _ => None,
-        }
-    }
 }
 
 /// A Switch is a device that receives commands
@@ -268,6 +285,8 @@ pub struct SwitchCommand {
     /// This is a mustache template. The arguments given are
     /// * state : on/off (see on off statement)
     /// * brightness : 0 - 255
+    /// * rgb (todo)
+    /// * warmth (todo)
     pub command: String,
     /// command to get state of the device
     /// useful at program start.
@@ -280,10 +299,33 @@ pub struct SwitchCommand {
     pub off: String,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum SwitchState {
     On,
     Off,
+}
+
+impl SwitchState {
+    pub fn json_value_to_switch_state(value: &Value) -> Option<SwitchState> {
+        use SwitchState::{Off, On};
+        match value {
+            Value::Bool(state) => {
+                if *state {
+                    Some(On)
+                } else {
+                    Some(Off)
+                }
+            }
+            Value::String(state) => {
+                if state.to_ascii_lowercase() == "on" {
+                    Some(On)
+                } else {
+                    Some(Off)
+                }
+            }
+            _ => None,
+        }
+    }
 }
 
 impl SwitchCommand {
