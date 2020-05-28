@@ -12,26 +12,6 @@ pub struct Configuration {
 }
 
 impl Configuration {
-    pub fn update_switch(&mut self, topic: &str, state: SwitchState) {
-        for switch in self.switches.iter_mut() {
-            if switch.topic == topic {
-                switch.state = state;
-                println!("set {} -> {:?}", switch.topic, switch.state);
-                return;
-            }
-        }
-    }
-
-    pub fn update_sensor(&mut self, topic: &str, state: SensorState) {
-        for sensor in self.sensors.iter_mut() {
-            if sensor.topic == topic {
-                sensor.state = state;
-                println!("set {} -> {:?}", sensor.topic, sensor.state);
-                return;
-            }
-        }
-    }
-
     pub fn get_sensor_for_topic(&self, topic: String) -> Option<&Sensor> {
         for sensor in self.sensors.iter() {
             if sensor.topic == topic {
@@ -48,71 +28,6 @@ impl Configuration {
             }
         }
         None
-    }
-
-    // dummy debug function
-    pub fn print_room_state(&self) {
-        let rooms = self.get_rooms();
-        println!("");
-        println!("");
-        for room in rooms {
-            let state = self.get_room_sensor_state(&room);
-            println!("");
-            println!("{} ({:?})", room, state);
-            println!("--------------------");
-            for sensor in self.get_sensors_for_room(room) {
-                println!(" {:<30}: {:?}", sensor.topic, sensor.state);
-            }
-            for switch in self.get_switches_for_room(room) {
-                println!(" {:<30}: {:?}", switch.topic, switch.state);
-            }
-        }
-    }
-
-    pub fn get_sensors_for_room(&self, room: &String) -> Vec<&Sensor> {
-        let mut result = Vec::new();
-        for sensor in self.sensors.iter() {
-            if sensor.rooms.contains(room) {
-                result.push(sensor);
-            }
-        }
-        result
-    }
-
-    pub fn get_switches_for_room(&self, room: &String) -> Vec<&Switch> {
-        let mut result = Vec::new();
-        for switch in self.switches.iter() {
-            if switch.rooms.contains(room) {
-                result.push(switch);
-            }
-        }
-        result
-    }
-
-    pub fn get_room_sensor_state(&self, room: &String) -> SensorState {
-        for sensor in self.sensors.iter() {
-            if sensor.rooms.contains(room) {
-                if sensor.state == SensorState::Present {
-                    return SensorState::Present;
-                }
-            }
-        }
-        SensorState::Absent
-    }
-
-    pub fn get_rooms(&self) -> Vec<&String> {
-        let mut rooms = HashSet::new();
-        for sensor in self.sensors.iter() {
-            for room in sensor.rooms.iter() {
-                rooms.insert(room);
-            }
-        }
-        let mut result = Vec::new();
-        for room in rooms.iter() {
-            result.push(*room);
-        }
-        result.sort();
-        result
     }
 
     pub fn get_topics(&self) -> Vec<&String> {
@@ -162,42 +77,6 @@ impl Configuration {
             .flatten();
 
         switch_state
-    }
-
-    pub(crate) fn update_sensor_for_topic(&mut self, topic: &str, payload: &Value) {
-        let sensor_presents = self
-            .get_sensor_for_topic(topic.to_string())
-            .map(|sensor| {
-                let value = &payload[&sensor.key];
-                let presents = SensorState::json_value_to_sensor_state(value);
-                if sensor.presents_negator {
-                    presents.map(|presents| SensorState::negate(presents))
-                } else {
-                    presents
-                }
-            })
-            .flatten();
-        if sensor_presents.is_none() {
-            return;
-        }
-
-        self.update_sensor(topic, sensor_presents.unwrap());
-    }
-
-    pub fn update_switch_for_topic(&mut self, topic: &str, payload: &Value) {
-        let switch_presents = self
-            .get_switch_for_topic(topic.to_string())
-            .map(|switch| {
-                let value = &payload[&switch.key];
-                let presents = SwitchState::json_value_to_switch_state(value);
-                presents
-            })
-            .flatten();
-        if switch_presents.is_none() {
-            return;
-        }
-
-        self.update_switch(topic, switch_presents.unwrap());
     }
 }
 

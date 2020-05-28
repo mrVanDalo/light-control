@@ -83,7 +83,7 @@ pub fn hardcoded_config() -> Configuration {
         create_light_switch("light_4", vec!["bath_room".to_string()]),
         create_light_switch("light_8", vec!["bed_room".to_string()]),
         create_sonoff_switch("PAL01", vec!["bed_room".to_string()]),
-        create_sonoff_switch("PAL02", vec!["bed_room".to_string()]),
+        //create_sonoff_switch("PAL02", vec!["bed_room".to_string()]),
         create_sonoff_switch("PAL03", vec!["living_room".to_string()]),
         create_sonoff_switch("PAL04", vec!["bed_room".to_string()]),
         create_sonoff_switch("PAL05", vec!["living_room".to_string()]),

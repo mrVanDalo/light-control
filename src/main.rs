@@ -121,6 +121,9 @@ fn main() {
                 state_memory.update_sensor(instant, sensor_content);
             }
         }
+        for switch_command in state_memory.trigger_commands() {
+            publish_sender.send(switch_command);
+        }
     }
 }
 

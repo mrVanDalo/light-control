@@ -44,10 +44,10 @@ impl StateMemory {
         }
     }
 
-    pub fn update_sensor(&mut self, instant: Instant, sensorContent: SensorChangeContent) {
+    pub fn update_sensor(&mut self, instant: Instant, sensor_content: SensorChangeContent) {
         for room in self.room_sensors.values_mut() {
-            room.get_mut(&sensorContent.topic).map(|sensor_memory| {
-                match (&sensor_memory.state, sensorContent.state) {
+            room.get_mut(&sensor_content.topic).map(|sensor_memory| {
+                match (&sensor_memory.state, sensor_content.state) {
                     (SensorMemoryState::Absent, SensorState::Absent) => (),
                     (SensorMemoryState::AbsentSince(_), SensorState::Absent) => (),
                     (SensorMemoryState::Absent, SensorState::Present) => {
@@ -65,12 +65,12 @@ impl StateMemory {
         }
     }
 
-    pub fn update_switch(&mut self, _instant: Instant, switchContent: SwitchChangeContent) {
+    pub fn update_switch(&mut self, _instant: Instant, switch_content: SwitchChangeContent) {
         for mut room_switch in self.room_switches.iter_mut() {
-            if room_switch.topic != switchContent.topic {
+            if room_switch.topic != switch_content.topic {
                 continue;
             }
-            room_switch.state = switchContent.state;
+            room_switch.state = switch_content.state;
             break;
         }
     }
