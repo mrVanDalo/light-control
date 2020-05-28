@@ -1,4 +1,5 @@
 use crate::configuration::{Configuration, SensorState, SwitchState};
+use crate::{SensorChangeContent, SwitchChangeContent};
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -17,7 +18,7 @@ impl StateMemory {
                 if !room_sensors.contains_key(room) {
                     room_sensors.insert(room.clone(), HashMap::new());
                 }
-                let mut sensors_memory = room_sensors.get_mut(room).unwrap();
+                let sensors_memory = room_sensors.get_mut(room).unwrap();
 
                 // initial everything is Absent
                 sensors_memory.insert(
@@ -43,18 +44,10 @@ impl StateMemory {
         }
     }
 
-    /// update StateMemory with new information
-    pub fn update(&mut self, instant: Instant, configuration: Configuration) {
-        for sensor in configuration.sensors.iter() {
-            for room in sensor.rooms.iter() {
-                let mut room_sensors = self
-                    .room_sensors
-                    .get_mut(room)
-                    .expect("rooms must be present once initialized");
-                let mut sensor_memory = room_sensors
-                    .get_mut(&sensor.topic)
-                    .expect("room must contain sensor once initialized");
-                match (&sensor_memory.state, sensor.state) {
+    pub fn update_sensor(&mut self, instant: Instant, sensorContent: SensorChangeContent) {
+        for room in self.room_sensors.values_mut() {
+            room.get_mut(&sensorContent.topic).map(|sensor_memory| {
+                match (&sensor_memory.state, sensorContent.state) {
                     (SensorMemoryState::Absent, SensorState::Absent) => (),
                     (SensorMemoryState::AbsentSince(_), SensorState::Absent) => (),
                     (SensorMemoryState::Absent, SensorState::Present) => {
@@ -68,16 +61,17 @@ impl StateMemory {
                     }
                     (SensorMemoryState::Present, SensorState::Present) => (),
                 }
-            }
+            });
         }
-        for switch_configuration in configuration.switches.iter() {
-            'current: for mut room_switch in self.room_switches.iter_mut() {
-                if room_switch.topic != switch_configuration.topic {
-                    continue;
-                }
-                room_switch.state = switch_configuration.state;
-                break 'current;
+    }
+
+    pub fn update_switch(&mut self, _instant: Instant, switchContent: SwitchChangeContent) {
+        for mut room_switch in self.room_switches.iter_mut() {
+            if room_switch.topic != switchContent.topic {
+                continue;
             }
+            room_switch.state = switchContent.state;
+            break;
         }
     }
 
@@ -106,8 +100,6 @@ impl StateMemory {
                     (Absent, AbsentSince(instant)) => {
                         room_state = AbsentSince(instant.clone());
                     }
-                    // todo : why is rust not capable of realizing this is already covered?
-                    (_, AbsentSince(_)) => println!("this should never happen!"),
                 };
             }
             rooms.insert(room.clone(), room_state);

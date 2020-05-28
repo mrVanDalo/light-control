@@ -9,18 +9,17 @@ mod dummy_configuration;
 mod mqtt;
 mod state_memory;
 
-use crate::configuration::{Configuration, SensorState, SwitchState};
+use crate::configuration::{SensorState, SwitchState};
 use crate::dummy_configuration::hardcoded_config;
 use crate::state_memory::{StateMemory, SwitchCommand};
-use crate::UpdateMessage::SensorChange;
 use paho_mqtt::MessageBuilder;
-use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
+use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::{Duration, Instant};
 
 fn main() {
-    let mut configuration = hardcoded_config();
+    let configuration = Arc::new(hardcoded_config());
     let topics_to_subscribe = configuration.get_topics();
     let mut state_memory = StateMemory::new(&configuration);
 
@@ -52,6 +51,7 @@ fn main() {
     let ping_sender = update_sender.clone();
 
     // start thread which reacts on state changes
+    let state_configuration = configuration.clone();
     let mqtt_receiver = mqtt_client.cli.start_consuming();
     thread::spawn(move || {
         for msg in mqtt_receiver.iter() {
@@ -61,7 +61,7 @@ fn main() {
 
                 match serde_json::from_str(&payload_str) {
                     Result::Ok(payload) => {
-                        configuration
+                        state_configuration
                             .get_update_switch_for_topic(topic, &payload)
                             .map(|(topic, state)| {
                                 let content = SwitchChangeContent { topic, state };
@@ -69,7 +69,7 @@ fn main() {
                                     .send(UpdateMessage::SwitchChange(Instant::now(), content));
                             });
 
-                        configuration
+                        state_configuration
                             .get_update_sensor_for_topic(topic, &payload)
                             .map(|(topic, state)| {
                                 let content = SensorChangeContent { topic, state };
@@ -90,11 +90,12 @@ fn main() {
     });
 
     // publish thread
+    let publish_configuration = configuration.clone();
     let (publish_sender, publish_receiver): (Sender<SwitchCommand>, Receiver<SwitchCommand>) =
         mpsc::channel();
     thread::spawn(move || {
         for message in publish_receiver.iter() {
-            let switch = configuration
+            let switch = publish_configuration
                 .get_switch_for_topic(message.topic)
                 .expect("couldn't get swtich from topic");
             let (topic, command) = switch.get_topic_and_command(message.state, 255);

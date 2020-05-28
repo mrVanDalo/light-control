@@ -127,7 +127,7 @@ impl Configuration {
     }
 
     pub(crate) fn get_update_sensor_for_topic(
-        &mut self,
+        &self,
         topic: &str,
         payload: &Value,
     ) -> Option<(String, SensorState)> {
@@ -148,7 +148,7 @@ impl Configuration {
         sensor_state
     }
     pub(crate) fn get_update_switch_for_topic(
-        &mut self,
+        &self,
         topic: &str,
         payload: &Value,
     ) -> Option<(String, SwitchState)> {
