@@ -2,7 +2,6 @@ extern crate mustache;
 
 use self::mustache::MapBuilder;
 use serde_json::Value;
-use std::collections::HashSet;
 
 /// Room setup
 #[derive(Clone)]
@@ -41,7 +40,7 @@ impl Configuration {
         topics
     }
 
-    pub(crate) fn get_update_sensor_for_topic(
+    pub fn get_update_sensor_for_topic(
         &self,
         topic: &str,
         payload: &Value,
@@ -51,7 +50,7 @@ impl Configuration {
             .map(|sensor| {
                 let value = &payload[&sensor.key];
                 let presents = SensorState::json_value_to_sensor_state(value);
-                let state = if sensor.presents_negator {
+                let state = if sensor.invert_state {
                     presents.map(|presents| SensorState::negate(presents))
                 } else {
                     presents
@@ -62,7 +61,7 @@ impl Configuration {
 
         sensor_state
     }
-    pub(crate) fn get_update_switch_for_topic(
+    pub fn get_update_switch_for_topic(
         &self,
         topic: &str,
         payload: &Value,
@@ -82,20 +81,21 @@ impl Configuration {
 
 /// A Sensor is a device that generates inputs
 /// like door open/close or motion detected undetected
+///
+/// Only mqtt commands that are flat json objects are
+/// understood.
 #[derive(Clone)]
 pub struct Sensor {
     /// topic to listen to
     pub topic: String,
-    /// json path to read the state
+    /// json key to read the state
     pub key: String,
     /// rooms that should be considered present when
     /// when this sensor is triggered
     pub rooms: Vec<String>,
-    /// state to the sensor
-    pub state: SensorState,
     /// sometimes sensors send false if presents
     /// this options negates presences.
-    pub presents_negator: bool,
+    pub invert_state: bool,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -146,8 +146,6 @@ pub struct Switch {
     pub key: String,
     /// rooms this switch is placed
     pub rooms: Vec<String>,
-    /// state of the switch
-    pub state: SwitchState,
     /// command control
     pub command: SwitchCommand,
 }
@@ -229,6 +227,8 @@ impl SwitchCommand {
 #[cfg(test)]
 mod switch_tests {
     use super::*;
+
+    // todo write parse topic tests
 
     #[test]
     fn test_get_topic_and_command() {

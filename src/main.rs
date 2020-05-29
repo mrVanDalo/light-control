@@ -7,21 +7,21 @@ use crate::mqtt::MqttClient;
 mod configuration;
 mod dummy_configuration;
 mod mqtt;
-mod state_memory;
+mod strategy;
 
 use crate::configuration::{SensorState, SwitchState};
 use crate::dummy_configuration::hardcoded_config;
-use crate::state_memory::{StateMemory, SwitchCommand};
+use crate::strategy::{Strategy, SwitchCommand};
 use paho_mqtt::MessageBuilder;
+use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::{Duration, Instant};
 
 fn main() {
-    let configuration = Arc::new(hardcoded_config());
+    let configuration = hardcoded_config();
     let topics_to_subscribe = configuration.get_topics();
-    let mut state_memory = StateMemory::new(&configuration);
+    let mut strategy = Strategy::new(&configuration);
 
     // connect and subscribe to mqtt
     let mut mqtt_client = MqttClient::new(
@@ -111,17 +111,15 @@ fn main() {
     // main loop
     for update_message in update_receiver.iter() {
         match update_message {
-            UpdateMessage::Ping => println!("got ping"),
+            UpdateMessage::Ping => {}
             UpdateMessage::SwitchChange(instant, switch_content) => {
-                println!("got state change");
-                state_memory.update_switch(instant, switch_content);
+                strategy.update_switch(instant, switch_content);
             }
             UpdateMessage::SensorChange(instant, sensor_content) => {
-                println!("got state change");
-                state_memory.update_sensor(instant, sensor_content);
+                strategy.update_sensor(instant, sensor_content);
             }
         }
-        for switch_command in state_memory.trigger_commands() {
+        for switch_command in strategy.trigger_commands() {
             publish_sender.send(switch_command);
         }
     }

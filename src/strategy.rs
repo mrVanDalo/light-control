@@ -4,13 +4,21 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 type Topic = String;
+type Room = String;
+type Sensors = HashMap<Topic, SensorMemory>;
 
-pub struct StateMemory {
-    pub room_sensors: HashMap<String, HashMap<Topic, SensorMemory>>,
+pub struct Strategy {
+
+    /// all known sensors grouped room
+    pub room_sensors: HashMap<Room, Sensors>,
+
+    /// all known switches grouped room
     pub room_switches: Vec<SwitchMemory>,
+
 }
 
-impl StateMemory {
+impl Strategy {
+    /// create a new StateMemory object out of a Configuration
     pub fn new(configuration: &Configuration) -> Self {
         let mut room_sensors = HashMap::new();
         for sensor in configuration.sensors.iter() {
@@ -38,7 +46,7 @@ impl StateMemory {
                 rooms: switch.rooms.clone(),
             })
         }
-        StateMemory {
+        Strategy {
             room_sensors,
             room_switches,
         }
@@ -75,6 +83,8 @@ impl StateMemory {
         }
     }
 
+    /// find situation where a switch has a state which it shouldn't have
+    /// and create commands to change that
     pub fn trigger_commands(&self) -> Vec<SwitchCommand> {
         use SensorMemoryState::{Absent, AbsentSince, Present};
         // collect current sensor state per room
