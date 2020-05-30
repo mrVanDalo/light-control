@@ -216,7 +216,7 @@ impl SwitchCommand {
         let state_value = match state {
             SwitchState::On => &self.on,
             SwitchState::Off => &self.off,
-            SwitchState::Unknown => &self.off // should never happen
+            SwitchState::Unknown => &self.off, // should never happen
         };
         let data = MapBuilder::new()
             .insert("state", state_value)

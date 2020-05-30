@@ -1,5 +1,6 @@
-extern crate env_logger;
+#[macro_use]
 extern crate log;
+extern crate env_logger;
 extern crate paho_mqtt;
 extern crate serde_json;
 
@@ -12,6 +13,7 @@ mod strategy;
 use crate::configuration::{SensorState, SwitchState};
 use crate::dummy_configuration::hardcoded_config;
 use crate::strategy::{Strategy, SwitchCommand};
+use log::Level;
 use paho_mqtt::MessageBuilder;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
@@ -19,6 +21,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 fn main() {
+    env_logger::init();
+
     let configuration = hardcoded_config();
     let topics_to_subscribe = configuration.get_topics();
     let mut strategy = Strategy::new(&configuration);
@@ -121,7 +125,7 @@ fn main() {
         match update_message {
             UpdateMessage::Ping => {}
             UpdateMessage::Deinit(instant) => {
-                strategy.deinit_sensors(instant);
+                strategy.replace_uninitialized_with_absents(instant);
             }
             UpdateMessage::SwitchChange(instant, switch_content) => {
                 strategy.update_switch(instant, switch_content);
@@ -151,7 +155,7 @@ pub enum UpdateMessage {
     /// used to trigger regular calculation
     Ping,
     /// Deinit everything after a while
-    Deinit(Instant)
+    Deinit(Instant),
 }
 
 pub struct SwitchChangeContent {

@@ -1,5 +1,5 @@
 use crate::configuration::{Configuration, SensorState, SwitchState};
-use crate::strategy::SensorMemoryState::{Present, Initialized, AbsentSince};
+use crate::strategy::SensorMemoryState::{AbsentSince, Present, Uninitialized};
 use crate::{SensorChangeContent, SwitchChangeContent};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -40,10 +40,10 @@ impl Strategy {
                     sensor.topic.clone(),
                     SensorMemory {
                         delay: sensor.delay,
-                        state: SensorMemoryState::Initialized,
+                        state: SensorMemoryState::Uninitialized,
                     },
                 );
-                println!(
+                info!(
                     "{} contains {} with delay: {:?}",
                     room, sensor.topic, sensor.delay
                 );
@@ -61,9 +61,9 @@ impl Strategy {
             });
         }
         if min_delay < Duration::from_secs(10) {
-            println!("warning: you have configured a sensor delay below 10 seconds, this can cause wrong location calculation");
+            warn!("warning: you have configured a sensor delay below 10 seconds, this can cause wrong location calculation");
         }
-        println!("minimal delay: {:?}", min_delay);
+        info!("minimal delay: {:?}", min_delay);
         Strategy {
             room_sensors,
             room_switches,
@@ -74,11 +74,11 @@ impl Strategy {
     }
 
     /// after some time none of the sensors can stay on the Initialized state
-    pub fn deinit_sensors(&mut self, instant: Instant){
-        println!("deinit all");
+    pub fn replace_uninitialized_with_absents(&mut self, instant: Instant) {
+        info!("take over uninitialized sensors, previous state will now be set to expected state for all controlled devices");
         for sensor in self.room_sensors.values_mut() {
             for sensor_state in sensor.values_mut() {
-                if sensor_state.state == Initialized{
+                if sensor_state.state == Uninitialized {
                     sensor_state.state = AbsentSince(instant.clone());
                 }
             }
@@ -89,10 +89,10 @@ impl Strategy {
         for room in self.room_sensors.values_mut() {
             room.get_mut(&sensor_content.topic).map(|sensor_memory| {
                 match (&sensor_memory.state, sensor_content.state) {
-                    (SensorMemoryState::Initialized, SensorState::Absent) => {
+                    (SensorMemoryState::Uninitialized, SensorState::Absent) => {
                         sensor_memory.state = SensorMemoryState::AbsentSince(instant);
                     }
-                    (SensorMemoryState::Initialized, SensorState::Present) => {
+                    (SensorMemoryState::Uninitialized, SensorState::Present) => {
                         sensor_memory.state = SensorMemoryState::Present
                     }
                     (SensorMemoryState::AbsentSince(_), SensorState::Absent) => (),
@@ -118,7 +118,6 @@ impl Strategy {
         }
     }
 
-
     pub fn calculate_current_room(&mut self) {
         let rooms = self.get_room_state(self.min_delay);
 
@@ -134,7 +133,7 @@ impl Strategy {
                 Present => {
                     // if one of the rooms is still present, we don't need to calculate anything
                     //return;
-                    present_counter = present_counter +1;
+                    present_counter = present_counter + 1;
                     present_room = room;
                 }
                 AbsentSince(instant) => {
@@ -148,7 +147,7 @@ impl Strategy {
                         youngest_room = room;
                     }
                 }
-                Initialized => {}
+                Uninitialized => {}
             }
         }
         if present_counter > 1 {
@@ -156,9 +155,9 @@ impl Strategy {
             return;
         };
         if present_counter == 1 {
-            if self.current_room.is_none(){
+            if self.current_room.is_none() {
                 self.current_room = Some(present_room);
-                println!(
+                debug!(
                     "current_room set to : {}",
                     self.current_room.as_ref().unwrap()
                 );
@@ -168,7 +167,7 @@ impl Strategy {
                 return;
             }
             self.current_room = Some(present_room);
-            println!(
+            debug!(
                 "current_room set to : {}",
                 self.current_room.as_ref().unwrap()
             );
@@ -176,7 +175,7 @@ impl Strategy {
         }
         if youngest_absents + delay_play < current_room_absents {
             self.current_room = Some(youngest_room);
-            println!(
+            debug!(
                 "current_room set to : {}",
                 self.current_room.as_ref().unwrap()
             );
@@ -194,7 +193,7 @@ impl Strategy {
                 continue;
             }
             if old_state.as_ref().unwrap() != &state {
-                println!("turn {}  {:?} -> {:?}", room, old_state.unwrap(), state);
+                trace!("turn {}  {:?} -> {:?}", room, old_state.unwrap(), state);
             }
         }
 
@@ -222,7 +221,7 @@ impl Strategy {
                 continue;
             }
             if should_state.unwrap() != switch.state {
-                println!("turn {:?} -> {}", should_state.unwrap(), switch.topic);
+                trace!("turn {:?} -> {}", should_state.unwrap(), switch.topic);
                 commands.push(SwitchCommand {
                     topic: switch.topic.clone(),
                     state: should_state.unwrap(),
@@ -250,14 +249,14 @@ impl Strategy {
                 .get(room)
                 .filter(|value| value != &&Present)
                 .map(|value| value.clone())
-                .unwrap_or(Initialized);
+                .unwrap_or(Uninitialized);
             //let mut room_state = Initialized;
             'room_state: for (_topic, state) in sensors.iter() {
                 match (&room_state, &state.state) {
                     (Present, _) => {
                         break 'room_state;
                     }
-                    (_, Initialized) => {}
+                    (_, Uninitialized) => {}
                     (AbsentSince(current_instant), AbsentSince(new_instant)) => {
                         if (new_instant.elapsed() + delay_buffer) < state.delay {
                             continue;
@@ -270,7 +269,7 @@ impl Strategy {
                         room_state =
                             AbsentSince((new_instant.clone() + delay_buffer) - state.delay);
                     }
-                    (Initialized, AbsentSince(instant)) => {
+                    (Uninitialized, AbsentSince(instant)) => {
                         if (instant.elapsed() + delay_buffer) < state.delay {
                             room_state = Present;
                             continue;
@@ -302,7 +301,7 @@ pub struct SensorMemory {
 #[derive(PartialEq, Debug, Clone)]
 pub enum SensorMemoryState {
     /// Absent since program start
-    Initialized,
+    Uninitialized,
     /// Present
     Present,
     /// was Present once but is now Absent since
