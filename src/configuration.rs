@@ -182,6 +182,7 @@ pub struct SwitchCommand {
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum SwitchState {
+    Unknown,
     On,
     Off,
 }
@@ -211,9 +212,11 @@ impl SwitchState {
 
 impl SwitchCommand {
     pub fn get_topic_and_command(&self, state: SwitchState, brightness: u8) -> (&String, String) {
+        debug_assert_ne!(state, SwitchState::Unknown);
         let state_value = match state {
             SwitchState::On => &self.on,
             SwitchState::Off => &self.off,
+            SwitchState::Unknown => &self.off // should never happen
         };
         let data = MapBuilder::new()
             .insert("state", state_value)
