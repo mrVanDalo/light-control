@@ -1,4 +1,4 @@
-use crate::configuration::{Configuration, Sensor, Switch, SwitchCommand};
+use crate::configuration::{Configuration, Scene, Sensor, Switch, SwitchCommand};
 use std::time::Duration;
 
 /// hard coded for now
@@ -37,8 +37,29 @@ pub fn hardcoded_config() -> Configuration {
         //create_sonoff_switch("PAL05", vec!["living_room".to_string()]),
         create_sonoff_switch("PAL06", vec!["kitchen_room".to_string()]),
     ];
+    let scenes = vec![
+        Scene {
+            name: "default".to_string(),
+            brightness: 255,
+            exclude_switches: vec![],
+        },
+        Scene {
+            name: "night".to_string(),
+            brightness: 25,
+            exclude_switches: vec![
+                "stat/PAL01/RESULT".to_string(),
+                "stat/PAL03/RESULT".to_string(),
+                "stat/PAL04/RESULT".to_string(),
+                "zigbee2mqtt/light_2".to_string(),
+            ],
+        },
+    ];
 
-    Configuration { switches, sensors }
+    Configuration {
+        switches,
+        sensors,
+        scenes,
+    }
 }
 
 fn create_motion_sensor(topic: &str, rooms: Vec<String>) -> Sensor {

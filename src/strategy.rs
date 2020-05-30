@@ -10,18 +10,27 @@ type Sensors = HashMap<Topic, SensorMemory>;
 
 pub struct Strategy {
     /// all known sensors grouped room
-    pub room_sensors: HashMap<Room, Sensors>,
+    room_sensors: HashMap<Room, Sensors>,
+
     /// all known switches grouped room
-    pub room_switches: Vec<SwitchMemory>,
+    room_switches: Vec<SwitchMemory>,
 
     /// room state cache to print nice messages
     room_state: HashMap<Room, SensorMemoryState>,
+
     /// room we think the user is located
-    pub current_room: Option<Room>,
+    current_room: Option<Room>,
+
     /// min_delay of all sensors
     /// this is kinda the buffer of all the sensors
     /// to determine the current_room
-    pub min_delay: Duration,
+    min_delay: Duration,
+
+    /// switch topics which should be permanent disabled
+    disabled_switches: Vec<String>,
+
+    /// current brightness
+    brightness: u8,
 }
 
 impl Strategy {
@@ -64,12 +73,26 @@ impl Strategy {
             warn!("warning: you have configured a sensor delay below 10 seconds, this can cause wrong location calculation");
         }
         info!("minimal delay: {:?}", min_delay);
+
+        let (brightness, disabled_switches) = configuration
+            .scenes
+            .get(0)
+            .map(|default_scene| {
+                (
+                    default_scene.brightness.clone(),
+                    default_scene.exclude_switches.clone(),
+                )
+            })
+            .unwrap_or((255, vec![]));
+
         Strategy {
             room_sensors,
             room_switches,
             min_delay,
             room_state: HashMap::new(),
             current_room: None,
+            disabled_switches,
+            brightness,
         }
     }
 
@@ -201,20 +224,24 @@ impl Strategy {
         for switch in self.room_switches.iter() {
             use SwitchState::{Off, On};
             let mut should_state = None;
-            'find_should_state: for room in switch.rooms.iter() {
-                if Some(room) == self.current_room.as_ref() {
-                    should_state = Some(On);
-                    break 'find_should_state;
-                }
-                match &rooms.get(room).unwrap() {
-                    Present => {
+            if self.disabled_switches.contains(&switch.topic) {
+                should_state = Some(Off);
+            } else {
+                'find_should_state: for room in switch.rooms.iter() {
+                    if Some(room) == self.current_room.as_ref() {
                         should_state = Some(On);
                         break 'find_should_state;
                     }
-                    AbsentSince(_) => {
-                        should_state = Some(Off);
+                    match &rooms.get(room).unwrap() {
+                        Present => {
+                            should_state = Some(On);
+                            break 'find_should_state;
+                        }
+                        AbsentSince(_) => {
+                            should_state = Some(Off);
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
             if should_state.is_none() {
@@ -225,6 +252,7 @@ impl Strategy {
                 commands.push(SwitchCommand {
                     topic: switch.topic.clone(),
                     state: should_state.unwrap(),
+                    brightness: self.brightness,
                 })
             }
         }
@@ -232,6 +260,14 @@ impl Strategy {
         self.room_state = rooms;
 
         commands
+    }
+
+    pub fn update_brightness(&mut self, brightness: u8) {
+        self.brightness = brightness;
+    }
+
+    pub fn update_disabled_switches(&mut self, disabled_switches: Vec<String>) {
+        self.disabled_switches = disabled_switches;
     }
 
     /// the current state of the room.
@@ -291,6 +327,7 @@ impl Strategy {
 pub struct SwitchCommand {
     pub topic: String,
     pub state: SwitchState,
+    pub brightness: u8,
 }
 
 pub struct SensorMemory {

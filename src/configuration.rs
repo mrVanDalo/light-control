@@ -7,6 +7,7 @@ use std::time::Duration;
 /// Room setup
 #[derive(Clone)]
 pub struct Configuration {
+    pub scenes: Vec<Scene>,
     pub sensors: Vec<Sensor>,
     pub switches: Vec<Switch>,
 }
@@ -19,6 +20,15 @@ impl Configuration {
             }
         }
         None
+    }
+
+    pub fn get_scene(&self, name: &String) -> Option<&Scene> {
+        for scene in self.scenes.iter() {
+            if &scene.name == name {
+                return Some(scene);
+            }
+        }
+        return None;
     }
 
     pub fn get_switch_for_topic(&self, topic: String) -> Option<&Switch> {
@@ -270,4 +280,16 @@ mod switch_tests {
         assert_eq!(topic, "lights/light_1/set");
         assert_eq!(command, r#"{"state":"OFF","brightness":123}"#);
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct Scene {
+    /// name of the scene
+    /// todo: use light-contoll/scene {"set":"<name>"} to change to theme
+    pub name: String,
+    /// brightness level of the scene
+    pub brightness: u8,
+    /// list all switch topics which should not turned on anymore.
+    /// they will be turned off by entering this scene
+    pub exclude_switches: Vec<String>,
 }

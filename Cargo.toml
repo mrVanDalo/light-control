@@ -9,9 +9,13 @@ edition = "2018"
 [dependencies]
 log = "0.4.8"
 env_logger = "0.7.1"
-serde_json = "1.0"
 futures = "0.1"
 mustache = "*"
+serde_json = "1.0"
+
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]
 
 
 [dependencies.paho-mqtt]
