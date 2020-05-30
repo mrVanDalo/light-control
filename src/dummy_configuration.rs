@@ -1,4 +1,5 @@
 use crate::configuration::{Configuration, Sensor, Switch, SwitchCommand};
+use std::time::Duration;
 
 /// hard coded for now
 pub fn hardcoded_config() -> Configuration {
@@ -33,7 +34,7 @@ pub fn hardcoded_config() -> Configuration {
         //create_sonoff_switch("PAL02", vec!["bed_room".to_string()]),
         create_sonoff_switch("PAL03", vec!["living_room".to_string()]),
         create_sonoff_switch("PAL04", vec!["bed_room".to_string()]),
-        create_sonoff_switch("PAL05", vec!["living_room".to_string()]),
+        //create_sonoff_switch("PAL05", vec!["living_room".to_string()]),
         create_sonoff_switch("PAL06", vec!["kitchen_room".to_string()]),
     ];
 
@@ -45,6 +46,7 @@ fn create_motion_sensor(topic: &str, rooms: Vec<String>) -> Sensor {
         topic: topic.to_string(),
         key: "occupancy".to_string(),
         invert_state: false,
+        delay: Duration::new(60, 0),
         rooms,
     }
 }
@@ -53,6 +55,7 @@ fn create_door_sensor(topic: &str, rooms: Vec<String>) -> Sensor {
         topic: topic.to_string(),
         key: "contact".to_string(),
         invert_state: true,
+        delay: Duration::new(120, 0),
         rooms,
     }
 }

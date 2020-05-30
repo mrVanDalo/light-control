@@ -2,6 +2,7 @@ extern crate mustache;
 
 use self::mustache::MapBuilder;
 use serde_json::Value;
+use std::time::Duration;
 
 /// Room setup
 #[derive(Clone)]
@@ -96,6 +97,9 @@ pub struct Sensor {
     /// sometimes sensors send false if presents
     /// this options negates presences.
     pub invert_state: bool,
+    /// delay to wait from present to absent,
+    /// when the absent signals appears.
+    pub delay: Duration,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]

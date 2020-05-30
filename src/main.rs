@@ -68,7 +68,6 @@ fn main() {
                                 update_sender
                                     .send(UpdateMessage::SwitchChange(Instant::now(), content));
                             });
-
                         state_configuration
                             .get_update_sensor_for_topic(topic, &payload)
                             .map(|(topic, state)| {
