@@ -21,7 +21,7 @@ impl MqttClient {
 
         // Create the client connection
         let cli = paho_mqtt::Client::new(create_opts).unwrap_or_else(|e| {
-            println!("Error creating the client: {:?}", e);
+            error!("Error creating the client: {:?}", e);
             process::exit(1);
         });
 
@@ -38,9 +38,9 @@ impl MqttClient {
             .finalize();
 
         // Make the connection to the broker
-        println!("Connecting to the MQTT server...");
+        info!("Connecting to the MQTT server...");
         if let Err(err) = cli.connect(conn_opts) {
-            eprintln!("Unable to connect: {}", err);
+            error!("Unable to connect: {}", err);
             process::exit(1);
         }
 
