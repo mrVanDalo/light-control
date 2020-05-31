@@ -4,14 +4,16 @@ extern crate env_logger;
 extern crate paho_mqtt;
 extern crate serde_json;
 
-use crate::mqtt::MqttClient;
 mod configuration;
 mod dummy_configuration;
 mod mqtt;
+mod replay;
 mod strategy;
 
 use crate::configuration::{Configuration, SensorState, SwitchState};
 use crate::dummy_configuration::hardcoded_config;
+use crate::mqtt::MqttClient;
+use crate::replay::Replay;
 use crate::strategy::{Strategy, SwitchCommand};
 use paho_mqtt::MessageBuilder;
 use serde::Deserialize;
@@ -23,7 +25,7 @@ use std::time::{Duration, Instant};
 use structopt::StructOpt;
 
 const LIGHT_CONTROL_SET_TOPIC: &str = "control/lights/set";
-const PING_PERIOD: u64 = 3000;
+const PING_PERIOD: u64 = 3;
 
 /// commands which can be send to control/lights/set
 #[derive(Deserialize)]
@@ -38,6 +40,14 @@ struct Opt {
     /// Input file (in json)
     #[structopt(name = "config.json", parse(from_os_str))]
     config: PathBuf,
+
+    /// replay script output path
+    #[structopt(long, parse(from_os_str))]
+    replay_script: Option<PathBuf>,
+
+    /// replay configuration output path
+    #[structopt(long, parse(from_os_str))]
+    replay_config: Option<PathBuf>,
 }
 
 fn main() {
@@ -52,6 +62,30 @@ fn main() {
     // get configuration
     let configuration = Configuration::load_from_file(&opt.config.to_str().unwrap())
         .expect("couldn't parse configuration");
+
+    let mut replay = None;
+    match (opt.replay_config, opt.replay_script) {
+        (Some(replay_config), Some(replay_script)) => {
+            replay = Some(Replay::new(&replay_script, &replay_config, &configuration).unwrap());
+            //replay.track_message("test/testy", r#"{"das":"test"}"#);
+            //replay.track_message("test/testy", r#"{"das":"test"}"#);
+        }
+        _ => {}
+    }
+
+    // spawn replay thread
+    let (replay_sender, replay_receiver): (Sender<ReplayMessage>, Receiver<ReplayMessage>) =
+        mpsc::channel();
+    let mut is_replay_enabled = replay.is_some();
+    if replay.is_some() {
+        let mut replay_tracker = replay.unwrap();
+        thread::spawn(move || {
+            for message in replay_receiver.iter() {
+                replay_tracker.track_message(message.topic.as_str(), message.payload.as_str());
+            }
+        });
+    }
+
     // //only for development
     //let configuration = hardcoded_config();
     //println!("config: {}", serde_json::to_string(&configuration).unwrap() );
@@ -95,6 +129,13 @@ fn main() {
             if let Some(msg) = msg {
                 let topic = msg.topic();
                 let payload_str = msg.payload_str();
+
+                if is_replay_enabled {
+                    replay_sender.send(ReplayMessage {
+                        topic: topic.to_string(),
+                        payload: payload_str.to_string(),
+                    });
+                }
 
                 if topic == LIGHT_CONTROL_SET_TOPIC {
                     let command =
@@ -147,7 +188,7 @@ fn main() {
     // start thread that triggers regular ping messages
     let ping_sender = update_sender.clone();
     thread::spawn(move || loop {
-        thread::sleep(Duration::from_millis(PING_PERIOD));
+        thread::sleep(Duration::from_secs(PING_PERIOD));
         ping_sender.send(UpdateMessage::Ping);
     });
 
@@ -201,6 +242,11 @@ fn main() {
             publish_sender.send(switch_command);
         }
     }
+}
+
+pub struct ReplayMessage {
+    pub topic: String,
+    pub payload: String,
 }
 
 pub struct PublishMessage {

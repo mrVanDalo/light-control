@@ -1,4 +1,6 @@
-*.log
+/*.log
+/*.sh
+/*.json
 
 # ---> Rust
 # Compiled files
