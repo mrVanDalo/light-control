@@ -67,7 +67,7 @@ pub fn hardcoded_config() -> Configuration {
     }
 }
 
-fn create_motion_sensor(topic: &str, rooms: Vec<String>) -> Sensor {
+pub fn create_motion_sensor(topic: &str, rooms: Vec<String>) -> Sensor {
     Sensor {
         topic: topic.to_string(),
         key: "occupancy".to_string(),
@@ -76,7 +76,7 @@ fn create_motion_sensor(topic: &str, rooms: Vec<String>) -> Sensor {
         rooms,
     }
 }
-fn create_door_sensor(topic: &str, rooms: Vec<String>) -> Sensor {
+pub fn create_door_sensor(topic: &str, rooms: Vec<String>) -> Sensor {
     Sensor {
         topic: topic.to_string(),
         key: "contact".to_string(),
@@ -86,7 +86,7 @@ fn create_door_sensor(topic: &str, rooms: Vec<String>) -> Sensor {
     }
 }
 
-fn create_light_switch(name: &str, rooms: Vec<String>) -> Switch {
+pub fn create_light_switch(name: &str, rooms: Vec<String>) -> Switch {
     Switch {
         topic: format!("zigbee2mqtt/{}", name),
         rooms: rooms,
@@ -102,7 +102,7 @@ fn create_light_switch(name: &str, rooms: Vec<String>) -> Switch {
     }
 }
 
-fn create_sonoff_switch(name: &str, rooms: Vec<String>) -> Switch {
+pub fn create_sonoff_switch(name: &str, rooms: Vec<String>) -> Switch {
     Switch {
         topic: format!("stat/{}/RESULT", name),
         rooms: rooms,

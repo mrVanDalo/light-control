@@ -9,6 +9,8 @@ type Room = String;
 type Sensors = HashMap<Topic, SensorMemory>;
 
 pub struct Strategy {
+    initialisation_time: Instant,
+
     /// all known sensors grouped room
     room_sensors: HashMap<Room, Sensors>,
 
@@ -56,8 +58,10 @@ impl Strategy {
                     },
                 );
                 info!(
-                    "{} contains {} with delay: {:?}",
-                    room, sensor.topic, sensor.delay
+                    "{} contains {} with delay: {}s",
+                    room,
+                    sensor.topic,
+                    sensor.delay.as_secs()
                 );
             }
             if sensor.delay < look_ahead {
@@ -97,6 +101,7 @@ impl Strategy {
             .unwrap_or((255, vec![]));
 
         Strategy {
+            initialisation_time: Instant::now(),
             room_sensors,
             room_switches,
             look_ahead,
@@ -159,6 +164,7 @@ impl Strategy {
         let mut current_room_absents = Duration::from_secs(60 * 55); // todo use Option here
         let mut youngest_absents = Duration::from_secs(60 * 60); // todo use Option here
         debug_assert!(youngest_absents + self.current_room_threshold > current_room_absents);
+
         let mut youngest_room = "".to_string();
         let mut present_counter = 0;
         let mut present_room = "".to_string();
@@ -235,14 +241,22 @@ impl Strategy {
     /// find situation where a switch has a state it shouldn't have
     /// and create command to correct that
     pub fn trigger_commands(&mut self) -> Vec<SwitchCommand> {
-        let rooms = self.get_room_state(Duration::from_secs(0));
-        for (room, state) in rooms.iter() {
-            let old_state = self.room_state.get(room);
+        let new_room_states = self.get_room_state(Duration::from_secs(0));
+        let current_room_states = &self.room_state;
+
+        for (room, new_state) in new_room_states.iter() {
+            let old_state = current_room_states.get(room);
             if old_state.is_none() {
                 continue;
             }
-            if old_state.as_ref().unwrap() != &state {
-                trace!("turn {}  {:?} -> {:?}", room, old_state.unwrap(), state);
+            let old_state = old_state.unwrap();
+            if old_state != new_state {
+                trace!(
+                    "realized {} changed {} -> {}",
+                    room,
+                    old_state.to_string(&self.initialisation_time),
+                    new_state.to_string(&self.initialisation_time)
+                );
             }
         }
 
@@ -258,7 +272,7 @@ impl Strategy {
                         should_state = Some(On);
                         break 'find_should_state;
                     }
-                    match &rooms.get(room).unwrap() {
+                    match &new_room_states.get(room).unwrap() {
                         Present => {
                             should_state = Some(On);
                             break 'find_should_state;
@@ -274,7 +288,7 @@ impl Strategy {
                 continue;
             }
             if should_state.unwrap() != switch.state {
-                trace!("turn {:?} -> {}", should_state.unwrap(), switch.topic);
+                trace!("set {} -> {:?}", switch.topic, should_state.unwrap());
                 commands.push(SwitchCommand {
                     topic: switch.topic.clone(),
                     state: should_state.unwrap(),
@@ -282,9 +296,7 @@ impl Strategy {
                 })
             }
         }
-        // todo : move this on top
-        self.room_state = rooms;
-
+        self.room_state = new_room_states;
         commands
     }
 
@@ -305,44 +317,53 @@ impl Strategy {
     ///
     fn get_room_state(&self, look_ahead: Duration) -> HashMap<String, SensorMemoryState> {
         let mut rooms = HashMap::new();
-        for (room, sensors) in self.room_sensors.iter() {
-            let mut room_state: SensorMemoryState = self
+
+        for (room, room_sensors) in self.room_sensors.iter() {
+            // current room state contains the state which is interesting for trigger_commands
+            // if it is set to AbsentSince() the delay parameter is already considered
+            let mut current_room_state: SensorMemoryState = self
                 .room_state
                 .get(room)
                 .filter(|value| value != &&Present)
                 .map(|value| value.clone())
                 .unwrap_or(Uninitialized);
-            'room_state: for (_topic, state) in sensors.iter() {
-                match (&room_state, &state.state) {
-                    (Present, _) => {
-                        break 'room_state;
-                    }
+
+            'room_state: for (_topic, sensor_memory) in room_sensors.iter() {
+                match (&current_room_state, &sensor_memory.state) {
                     (_, Uninitialized) => {}
                     (AbsentSince(current_instant), AbsentSince(new_instant)) => {
-                        if (new_instant.elapsed() + look_ahead) < state.delay {
+                        let new_elapsed = new_instant.elapsed() + look_ahead;
+                        if new_elapsed < sensor_memory.delay {
+                            current_room_state = Present;
+                            break 'room_state;
+                        }
+                        let current_elapsed = current_instant.elapsed() + look_ahead;
+                        if current_elapsed < (new_elapsed - sensor_memory.delay) {
                             continue;
                         }
-                        if (current_instant.elapsed() + look_ahead)
-                            < (new_instant.elapsed() + look_ahead) - state.delay
-                        {
-                            continue;
-                        }
-                        room_state = AbsentSince((new_instant.clone() + look_ahead) - state.delay);
+                        current_room_state =
+                            AbsentSince((new_instant.clone() + look_ahead) - sensor_memory.delay);
                     }
-                    (Uninitialized, AbsentSince(instant)) => {
-                        if (instant.elapsed() + look_ahead) < state.delay {
-                            room_state = Present;
-                            continue;
+                    (Uninitialized, AbsentSince(new_instant)) => {
+                        let new_elapsed = new_instant.elapsed() + look_ahead;
+                        if new_elapsed < sensor_memory.delay {
+                            current_room_state = Present;
+                            break 'room_state;
                         }
-                        room_state = AbsentSince((instant.clone() + look_ahead) - state.delay);
+                        current_room_state =
+                            AbsentSince((new_instant.clone() + look_ahead) - sensor_memory.delay);
                     }
                     (_, Present) => {
-                        room_state = Present;
+                        current_room_state = Present;
                         break 'room_state;
+                    }
+                    (Present, AbsentSince(instant)) => {
+                        // this only happens if current_room_state is derived from self.room_state
+                        current_room_state = sensor_memory.state.clone();
                     }
                 };
             }
-            rooms.insert(room.clone(), room_state);
+            rooms.insert(room.clone(), current_room_state);
         }
         rooms
     }
@@ -369,6 +390,30 @@ pub enum SensorMemoryState {
     AbsentSince(Instant),
 }
 
+impl SensorMemoryState {
+    // todo: there should be a nicer version which prints out the date instead seconds
+    pub fn to_string(&self, instant: &Instant) -> String {
+        match self {
+            Uninitialized => {
+                return "Uninitialized".to_string();
+            }
+            Present => {
+                return "Present".to_string();
+            }
+            AbsentSince(since) => {
+                let instant_elapsed = instant.elapsed();
+                let since_elapsed = since.elapsed();
+                let time = if instant_elapsed < since_elapsed {
+                    since_elapsed - instant_elapsed
+                } else {
+                    instant_elapsed - since_elapsed
+                };
+                return format!("AbsentSince({}s)", time.as_secs());
+            }
+        }
+    }
+}
+
 pub struct SwitchMemory {
     pub topic: String,
     pub state: SwitchState,
@@ -378,6 +423,9 @@ pub struct SwitchMemory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::configuration::{Credentials, Sensor};
+    use crate::dummy_configuration::{create_light_switch, create_motion_sensor};
+    use std::ops::Sub;
     use std::thread;
     use std::time::Duration;
 
@@ -388,5 +436,132 @@ mod tests {
         let instant2 = Instant::now();
         thread::sleep(Duration::new(2, 0));
         assert!(instant1.elapsed() > instant2.elapsed())
+    }
+
+    fn create_sensor(topic: &str, rooms: Vec<String>, delay: Duration) -> Sensor {
+        Sensor {
+            topic: topic.to_string(),
+            key: "occupancy".to_string(),
+            invert_state: false,
+            delay,
+            rooms,
+        }
+    }
+
+    fn instant_from_the_past(seconds: u64) -> Instant {
+        let instant = Instant::now().sub(Duration::from_secs(seconds));
+        assert!(instant.elapsed() < Duration::from_secs(seconds + 1));
+        assert!(instant.elapsed() > Duration::from_secs(seconds - 1));
+        instant
+    }
+
+    fn create_test_setup() -> Strategy {
+        let configuration = Configuration {
+            credentials: Credentials {
+                host: "".to_string(),
+                user: "".to_string(),
+                password: "".to_string(),
+            },
+            scenes: vec![],
+            sensors: vec![
+                create_sensor(
+                    "motion1",
+                    vec!["room1".to_string()],
+                    Duration::from_secs(10),
+                ),
+                create_sensor(
+                    "motion2",
+                    vec!["room1".to_string()],
+                    Duration::from_secs(10),
+                ),
+            ],
+            switches: vec![create_light_switch("light1", vec!["room1".to_string()])],
+        };
+        let mut strategy = Strategy::new(&configuration);
+
+        // test if sensors are proper initialized
+        let map = strategy.get_room_state(Duration::from_secs(0));
+        assert!(map.get("room1").is_some());
+        assert_eq!(
+            &SensorMemoryState::Uninitialized,
+            map.get("room1").unwrap(),
+            "room1 is not uninitialised"
+        );
+        strategy
+    }
+
+    #[test]
+    fn test_get_room_state_absent() {
+        let mut strategy = create_test_setup();
+        let motion_1_sensor = strategy
+            .room_sensors
+            .get_mut("room1")
+            .unwrap()
+            .get_mut("motion1");
+        assert!(motion_1_sensor.is_some());
+        let motion_1_sensor = motion_1_sensor.unwrap();
+
+        let instant = instant_from_the_past(12);
+        motion_1_sensor.state = AbsentSince(instant);
+        let map = strategy.get_room_state(Duration::from_secs(0));
+        assert_eq!(
+            &SensorMemoryState::AbsentSince(instant - Duration::from_secs(10)),
+            map.get("room1").unwrap()
+        );
+    }
+
+    #[test]
+    fn test_get_room_state_absent_and_delay() {
+        let mut strategy = create_test_setup();
+        let motion_1_sensor = strategy
+            .room_sensors
+            .get_mut("room1")
+            .unwrap()
+            .get_mut("motion1");
+        assert!(motion_1_sensor.is_some());
+        let motion_1_sensor = motion_1_sensor.unwrap();
+
+        let instant = instant_from_the_past(2);
+        motion_1_sensor.state = AbsentSince(instant);
+        let map = strategy.get_room_state(Duration::from_secs(0));
+        assert_eq!(&SensorMemoryState::Present, map.get("room1").unwrap());
+    }
+
+    #[test]
+    fn test_get_room_state_absent_and_delay_with_previous_state() {
+        let mut strategy = create_test_setup();
+        // setting the room_state to be offline for about 5 secs delay is already included here
+        strategy
+            .room_state
+            .insert("room1".to_string(), AbsentSince(instant_from_the_past(5)));
+        let motion_1_sensor = strategy
+            .room_sensors
+            .get_mut("room1")
+            .unwrap()
+            .get_mut("motion1");
+        assert!(motion_1_sensor.is_some());
+        let motion_1_sensor = motion_1_sensor.unwrap();
+
+        let instant = instant_from_the_past(2);
+        motion_1_sensor.state = AbsentSince(instant);
+        let map = strategy.get_room_state(Duration::from_secs(0));
+        assert_eq!(&SensorMemoryState::Present, map.get("room1").unwrap());
+    }
+
+    #[test]
+    fn test_get_room_state_present() {
+        let mut strategy = create_test_setup();
+        let motion_1_sensor = strategy
+            .room_sensors
+            .get_mut("room1")
+            .unwrap()
+            .get_mut("motion1");
+        assert!(motion_1_sensor.is_some());
+        let motion_1_sensor = motion_1_sensor.unwrap();
+
+        let instant = instant_from_the_past(12);
+        motion_1_sensor.state = Present;
+        let map = strategy.get_room_state(Duration::from_secs(0));
+        assert_eq!(&SensorMemoryState::Present, map.get("room1").unwrap());
     }
 }
