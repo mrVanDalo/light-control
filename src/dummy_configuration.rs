@@ -39,11 +39,13 @@ pub fn hardcoded_config() -> Configuration {
     ];
     let scenes = vec![
         Scene {
+            room_tracking_enabled: true,
             name: "default".to_string(),
             brightness: 255,
             exclude_switches: vec![],
         },
         Scene {
+            room_tracking_enabled: false,
             name: "night".to_string(),
             brightness: 25,
             exclude_switches: vec![

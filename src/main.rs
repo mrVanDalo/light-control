@@ -67,8 +67,6 @@ fn main() {
     match (opt.replay_config, opt.replay_script) {
         (Some(replay_config), Some(replay_script)) => {
             replay = Some(Replay::new(&replay_script, &replay_config, &configuration).unwrap());
-            //replay.track_message("test/testy", r#"{"das":"test"}"#);
-            //replay.track_message("test/testy", r#"{"das":"test"}"#);
         }
         _ => {}
     }
@@ -156,6 +154,7 @@ fn main() {
                                     change_sender.send(UpdateMessage::SceneChange(
                                         scene.exclude_switches.clone(),
                                         scene.brightness,
+                                        scene.room_tracking_enabled,
                                     ))
                                 });
                         }
@@ -232,9 +231,10 @@ fn main() {
             UpdateMessage::SensorChange(instant, sensor_content) => {
                 strategy.update_sensor(instant, sensor_content);
             }
-            UpdateMessage::SceneChange(exclude_switches, brightness) => {
-                strategy.update_brightness(brightness);
-                strategy.update_disabled_switches(exclude_switches);
+            UpdateMessage::SceneChange(exclude_switches, brightness, room_tracking_enabled) => {
+                strategy.set_brightness(brightness);
+                strategy.set_room_tracking_enabled(room_tracking_enabled);
+                strategy.set_disabled_switches(exclude_switches);
             }
         };
         strategy.calculate_current_room();
@@ -260,7 +260,7 @@ pub enum UpdateMessage {
     /// * names of excluded topics
     /// * brightness
     /// todo: use named arguments here
-    SceneChange(Vec<String>, u8),
+    SceneChange(Vec<String>, u8, bool),
     /// Send a State change
     SwitchChange(Instant, SwitchChangeContent),
     /// Send a State change

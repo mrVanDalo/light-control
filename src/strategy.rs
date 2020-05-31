@@ -37,6 +37,9 @@ pub struct Strategy {
     /// If a new room is shorter absent than the current room
     /// it must be shorter by the factor of this factor
     current_room_threshold: Duration,
+
+    /// weather or not current_room should stay on or not
+    room_tracking_enabled: bool,
 }
 
 impl Strategy {
@@ -110,6 +113,7 @@ impl Strategy {
             disabled_switches,
             brightness,
             current_room_threshold,
+            room_tracking_enabled: true,
         }
     }
 
@@ -268,7 +272,7 @@ impl Strategy {
                 should_state = Some(Off);
             } else {
                 'find_should_state: for room in switch.rooms.iter() {
-                    if Some(room) == self.current_room.as_ref() {
+                    if Some(room) == self.current_room.as_ref() && self.room_tracking_enabled {
                         should_state = Some(On);
                         break 'find_should_state;
                     }
@@ -300,11 +304,15 @@ impl Strategy {
         commands
     }
 
-    pub fn update_brightness(&mut self, brightness: u8) {
+    pub fn set_brightness(&mut self, brightness: u8) {
         self.brightness = brightness;
     }
 
-    pub fn update_disabled_switches(&mut self, disabled_switches: Vec<String>) {
+    pub fn set_room_tracking_enabled(&mut self, room_tracking_enabled: bool) {
+        self.room_tracking_enabled = room_tracking_enabled;
+    }
+
+    pub fn set_disabled_switches(&mut self, disabled_switches: Vec<String>) {
         self.disabled_switches = disabled_switches;
     }
 

@@ -23,3 +23,14 @@ cargo run \
   |& tee ./${TIME_STAMP}.log
 ```
 
+
+## how to change scenes
+
+```shell script
+mosquitto_pub \
+  -h localhost \
+  -u homeassistant \
+  -P password \
+  -t "control/lights/set" \
+  -m '{"scene":"<scene-name>"}' 
+```

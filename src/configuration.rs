@@ -336,10 +336,16 @@ pub struct Scene {
     /// they will be turned off by entering this scene
     #[serde(default)]
     pub exclude_switches: Vec<String>,
+    /// tracking enabled or not
+    #[serde(default = "Scene::default_room_tracking_enabled")]
+    pub room_tracking_enabled: bool,
 }
 
 impl Scene {
     pub fn default_brightness() -> u8 {
         255
+    }
+    pub fn default_room_tracking_enabled() -> bool {
+        true
     }
 }

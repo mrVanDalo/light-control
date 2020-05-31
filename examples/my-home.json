@@ -6,12 +6,15 @@
   },
   "scenes": [
     {
-      "name": "default",
-      "brightness": 255,
-      "exclude_switches": []
+      "name": "default"
+    },
+    {
+      "name": "outside",
+      "room_tracking_enabled": false
     },
     {
       "name": "night",
+      "room_tracking_enabled": false,
       "brightness": 25,
       "exclude_switches": [
         "stat/PAL01/RESULT",
