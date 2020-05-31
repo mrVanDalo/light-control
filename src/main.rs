@@ -23,6 +23,7 @@ use std::time::{Duration, Instant};
 use structopt::StructOpt;
 
 const LIGHT_CONTROL_SET_TOPIC: &str = "control/lights/set";
+const PING_PERIOD: u64 = 3000;
 
 /// commands which can be send to control/lights/set
 #[derive(Deserialize)]
@@ -146,7 +147,7 @@ fn main() {
     // start thread that triggers regular ping messages
     let ping_sender = update_sender.clone();
     thread::spawn(move || loop {
-        thread::sleep(Duration::from_millis(3000));
+        thread::sleep(Duration::from_millis(PING_PERIOD));
         ping_sender.send(UpdateMessage::Ping);
     });
 

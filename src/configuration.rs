@@ -328,7 +328,6 @@ mod switch_tests {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Scene {
     /// name of the scene
-    /// todo: use light-contoll/scene {"set":"<name>"} to change to theme
     pub name: String,
     /// brightness level of the scene
     #[serde(default = "Scene::default_brightness")]
