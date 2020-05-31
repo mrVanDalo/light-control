@@ -1,4 +1,4 @@
-use crate::configuration::{Configuration, Scene, Sensor, Switch, SwitchCommand};
+use crate::configuration::{Configuration, Credentials, Scene, Sensor, Switch, SwitchCommand};
 use std::time::Duration;
 
 /// hard coded for now
@@ -56,6 +56,11 @@ pub fn hardcoded_config() -> Configuration {
     ];
 
     Configuration {
+        credentials: Credentials {
+            host: "tcp://pepe.lan:1883".to_string(),
+            user: "homeassistant".to_string(),
+            password: "hallo".to_string(),
+        },
         switches,
         sensors,
         scenes,

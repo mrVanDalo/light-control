@@ -12,10 +12,18 @@ use std::time::Duration;
 /// Room setup
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Configuration {
+    pub credentials: Credentials,
     #[serde(default)]
     pub scenes: Vec<Scene>,
     pub sensors: Vec<Sensor>,
     pub switches: Vec<Switch>,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+pub struct Credentials {
+    pub host: String,
+    pub user: String,
+    pub password: String,
 }
 
 impl Configuration {

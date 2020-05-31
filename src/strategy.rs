@@ -24,7 +24,7 @@ pub struct Strategy {
     /// min_delay of all sensors
     /// this is kinda the buffer of all the sensors
     /// to determine the current_room
-    min_delay: Duration,
+    look_ahead_delay: Duration,
 
     /// switch topics which should be permanent disabled
     disabled_switches: Vec<String>,
@@ -37,7 +37,7 @@ impl Strategy {
     /// create a new StateMemory object out of a Configuration
     pub fn new(configuration: &Configuration) -> Self {
         let mut room_sensors = HashMap::new();
-        let mut min_delay = Duration::from_secs(300);
+        let mut look_ahead_delay = Duration::from_secs(300);
         for sensor in configuration.sensors.iter() {
             for room in sensor.rooms.iter() {
                 if !room_sensors.contains_key(room) {
@@ -57,8 +57,8 @@ impl Strategy {
                     room, sensor.topic, sensor.delay
                 );
             }
-            if sensor.delay < min_delay {
-                min_delay = sensor.delay;
+            if sensor.delay < look_ahead_delay {
+                look_ahead_delay = sensor.delay;
             }
         }
         let mut room_switches = Vec::new();
@@ -69,10 +69,10 @@ impl Strategy {
                 rooms: switch.rooms.clone(),
             });
         }
-        if min_delay < Duration::from_secs(10) {
+        if look_ahead_delay < Duration::from_secs(10) {
             warn!("warning: you have configured a sensor delay below 10 seconds, this can cause wrong location calculation");
         }
-        info!("minimal delay: {:?}", min_delay);
+        info!("look ahead delay: {:?}", look_ahead_delay);
 
         let (brightness, disabled_switches) = configuration
             .scenes
@@ -88,7 +88,7 @@ impl Strategy {
         Strategy {
             room_sensors,
             room_switches,
-            min_delay,
+            look_ahead_delay,
             room_state: HashMap::new(),
             current_room: None,
             disabled_switches,
@@ -141,10 +141,14 @@ impl Strategy {
         }
     }
 
+    // todo : das ist noch buggy
     pub fn calculate_current_room(&mut self) {
-        let rooms = self.get_room_state(self.min_delay);
+        let rooms = self.get_room_state(self.look_ahead_delay);
 
-        let delay_play = Duration::from_secs(12);
+        // The play time the instant of the next location has to be younger
+        // than the current location
+        let delay_play = self.look_ahead_delay / 2;
+
         let mut current_room_absents = Duration::from_secs(60 * 55);
         let mut youngest_absents = Duration::from_secs(60 * 60);
         debug_assert!(youngest_absents + delay_play > current_room_absents);
@@ -177,11 +181,12 @@ impl Strategy {
             // to much rooms still enabled
             return;
         };
+
         if present_counter == 1 {
             if self.current_room.is_none() {
                 self.current_room = Some(present_room);
                 debug!(
-                    "current_room set to : {}",
+                    "because of single presents , current_room is set to : {}",
                     self.current_room.as_ref().unwrap()
                 );
                 return;
@@ -189,17 +194,28 @@ impl Strategy {
             if self.current_room.as_ref().unwrap() == &present_room {
                 return;
             }
+            // current_room_absents needs to be set now
+            if current_room_absents < delay_play {
+                return;
+            }
+            // if only one room present and the current room is not present
+            // for delay_play set the present_room to current_room
             self.current_room = Some(present_room);
             debug!(
-                "current_room set to : {}",
+                "because current_room is to long absent ({:?}), new current_room is set to : {}",
+                current_room_absents,
                 self.current_room.as_ref().unwrap()
             );
             return;
         }
+
         if youngest_absents + delay_play < current_room_absents {
             self.current_room = Some(youngest_room);
             debug!(
-                "current_room set to : {}",
+                "because of current_room ({:?} is longer absent than another room ({:?} + {:?} play), current_room is set to : {}",
+                current_room_absents,
+                youngest_absents,
+                delay_play,
                 self.current_room.as_ref().unwrap()
             );
             return;

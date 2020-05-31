@@ -13,7 +13,6 @@ mod strategy;
 use crate::configuration::{Configuration, SensorState, SwitchState};
 use crate::dummy_configuration::hardcoded_config;
 use crate::strategy::{Strategy, SwitchCommand};
-use futures::future::err;
 use paho_mqtt::MessageBuilder;
 use serde::Deserialize;
 use std::path::PathBuf;
@@ -62,9 +61,9 @@ fn main() {
     topics_to_subscribe.push(&light_control_topic);
     // connect and subscribe to mqtt
     let mut mqtt_client = MqttClient::new(
-        "tcp://pepe.lan:1883".to_string(),
-        "homeassistant".to_string(),
-        "hallo".to_string(),
+        configuration.credentials.host.clone(),
+        configuration.credentials.user.clone(),
+        configuration.credentials.password.clone(),
         topics_to_subscribe,
     );
 

@@ -1,4 +1,9 @@
 {
+  "credentials": {
+    "host": "tcp://pepe.lan:1883",
+    "user": "homeassistant",
+    "password": "hallo"
+  },
   "scenes": [
     {
       "name": "default",
@@ -109,7 +114,7 @@
       ],
       "invert_state": true,
       "delay": {
-        "secs": 120,
+        "secs": 90,
         "nanos": 0
       }
     },
@@ -121,7 +126,7 @@
       ],
       "invert_state": true,
       "delay": {
-        "secs": 120,
+        "secs": 90,
         "nanos": 0
       }
     }
