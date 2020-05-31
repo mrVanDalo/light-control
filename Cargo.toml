@@ -12,6 +12,7 @@ env_logger = "0.7.1"
 futures = "0.1"
 mustache = "*"
 serde_json = "1.0"
+structopt = "0.3"
 
 [dependencies.serde]
 version = "1.0"

@@ -1,0 +1,257 @@
+{
+  "scenes": [
+    {
+      "name": "default",
+      "brightness": 255,
+      "exclude_switches": []
+    },
+    {
+      "name": "night",
+      "brightness": 25,
+      "exclude_switches": [
+        "stat/PAL01/RESULT",
+        "stat/PAL03/RESULT",
+        "stat/PAL04/RESULT",
+        "zigbee2mqtt/light_2"
+      ]
+    }
+  ],
+  "sensors": [
+    {
+      "topic": "zigbee2mqtt/motion_sensor_2",
+      "key": "occupancy",
+      "rooms": [
+        "bed_room"
+      ],
+      "invert_state": false,
+      "delay": {
+        "secs": 60,
+        "nanos": 0
+      }
+    },
+    {
+      "topic": "zigbee2mqtt/motion_sensor_7",
+      "key": "occupancy",
+      "rooms": [
+        "bed_room"
+      ],
+      "invert_state": false,
+      "delay": {
+        "secs": 60,
+        "nanos": 0
+      }
+    },
+    {
+      "topic": "zigbee2mqtt/motion_sensor_1",
+      "key": "occupancy",
+      "rooms": [
+        "kitchen_room"
+      ],
+      "invert_state": false,
+      "delay": {
+        "secs": 60,
+        "nanos": 0
+      }
+    },
+    {
+      "topic": "zigbee2mqtt/motion_sensor_4",
+      "key": "occupancy",
+      "rooms": [
+        "living_room"
+      ],
+      "invert_state": false,
+      "delay": {
+        "secs": 60,
+        "nanos": 0
+      }
+    },
+    {
+      "topic": "zigbee2mqtt/motion_sensor_5",
+      "key": "occupancy",
+      "rooms": [
+        "living_room"
+      ],
+      "invert_state": false,
+      "delay": {
+        "secs": 60,
+        "nanos": 0
+      }
+    },
+    {
+      "topic": "zigbee2mqtt/motion_sensor_5",
+      "key": "occupancy",
+      "rooms": [
+        "bath_room"
+      ],
+      "invert_state": false,
+      "delay": {
+        "secs": 60,
+        "nanos": 0
+      }
+    },
+    {
+      "topic": "zigbee2mqtt/motion_sensor_8",
+      "key": "occupancy",
+      "rooms": [
+        "bath_room"
+      ],
+      "invert_state": false,
+      "delay": {
+        "secs": 60,
+        "nanos": 0
+      }
+    },
+    {
+      "topic": "zigbee2mqtt/door_sensor_2",
+      "key": "contact",
+      "rooms": [
+        "floor_room"
+      ],
+      "invert_state": true,
+      "delay": {
+        "secs": 120,
+        "nanos": 0
+      }
+    },
+    {
+      "topic": "zigbee2mqtt/door_sensor_4",
+      "key": "contact",
+      "rooms": [
+        "floor_room"
+      ],
+      "invert_state": true,
+      "delay": {
+        "secs": 120,
+        "nanos": 0
+      }
+    }
+  ],
+  "switches": [
+    {
+      "topic": "zigbee2mqtt/light_1",
+      "key": "state",
+      "rooms": [
+        "floor_room"
+      ],
+      "command": {
+        "command": "{\"state\":\"{{state}}\",\"brightness\":{{brightness}}}",
+        "init_command": null,
+        "topic": "zigbee2mqtt/light_1/set",
+        "on": "ON",
+        "off": "OFF"
+      }
+    },
+    {
+      "topic": "zigbee2mqtt/light_2",
+      "key": "state",
+      "rooms": [
+        "floor_room"
+      ],
+      "command": {
+        "command": "{\"state\":\"{{state}}\",\"brightness\":{{brightness}}}",
+        "init_command": null,
+        "topic": "zigbee2mqtt/light_2/set",
+        "on": "ON",
+        "off": "OFF"
+      }
+    },
+    {
+      "topic": "zigbee2mqtt/light_3",
+      "key": "state",
+      "rooms": [
+        "living_room"
+      ],
+      "command": {
+        "command": "{\"state\":\"{{state}}\",\"brightness\":{{brightness}}}",
+        "init_command": null,
+        "topic": "zigbee2mqtt/light_3/set",
+        "on": "ON",
+        "off": "OFF"
+      }
+    },
+    {
+      "topic": "zigbee2mqtt/light_4",
+      "key": "state",
+      "rooms": [
+        "bath_room"
+      ],
+      "command": {
+        "command": "{\"state\":\"{{state}}\",\"brightness\":{{brightness}}}",
+        "init_command": null,
+        "topic": "zigbee2mqtt/light_4/set",
+        "on": "ON",
+        "off": "OFF"
+      }
+    },
+    {
+      "topic": "zigbee2mqtt/light_8",
+      "key": "state",
+      "rooms": [
+        "bed_room"
+      ],
+      "command": {
+        "command": "{\"state\":\"{{state}}\",\"brightness\":{{brightness}}}",
+        "init_command": null,
+        "topic": "zigbee2mqtt/light_8/set",
+        "on": "ON",
+        "off": "OFF"
+      }
+    },
+    {
+      "topic": "stat/PAL01/RESULT",
+      "key": "POWER",
+      "rooms": [
+        "bed_room"
+      ],
+      "command": {
+        "command": "{{state}}",
+        "init_command": "(null)",
+        "topic": "cmnd/PAL01/POWER",
+        "on": "ON",
+        "off": "OFF"
+      }
+    },
+    {
+      "topic": "stat/PAL03/RESULT",
+      "key": "POWER",
+      "rooms": [
+        "living_room"
+      ],
+      "command": {
+        "command": "{{state}}",
+        "init_command": "(null)",
+        "topic": "cmnd/PAL03/POWER",
+        "on": "ON",
+        "off": "OFF"
+      }
+    },
+    {
+      "topic": "stat/PAL04/RESULT",
+      "key": "POWER",
+      "rooms": [
+        "bed_room"
+      ],
+      "command": {
+        "command": "{{state}}",
+        "init_command": "(null)",
+        "topic": "cmnd/PAL04/POWER",
+        "on": "ON",
+        "off": "OFF"
+      }
+    },
+    {
+      "topic": "stat/PAL06/RESULT",
+      "key": "POWER",
+      "rooms": [
+        "kitchen_room"
+      ],
+      "command": {
+        "command": "{{state}}",
+        "init_command": "(null)",
+        "topic": "cmnd/PAL06/POWER",
+        "on": "ON",
+        "off": "OFF"
+      }
+    }
+  ]
+}

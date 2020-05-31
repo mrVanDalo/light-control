@@ -1,18 +1,31 @@
 extern crate mustache;
 
 use self::mustache::MapBuilder;
+use serde::Deserialize;
+use serde::Serialize;
 use serde_json::Value;
+use std::error::Error;
+use std::fs::File;
+use std::io::BufReader;
 use std::time::Duration;
 
 /// Room setup
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Configuration {
+    #[serde(default)]
     pub scenes: Vec<Scene>,
     pub sensors: Vec<Sensor>,
     pub switches: Vec<Switch>,
 }
 
 impl Configuration {
+    pub fn load_from_file(path: &str) -> Result<Self, Box<dyn Error>> {
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        let configuration = serde_json::from_reader(reader)?;
+        return Ok(configuration);
+    }
+
     pub fn get_sensor_for_topic(&self, topic: String) -> Option<&Sensor> {
         for sensor in self.sensors.iter() {
             if sensor.topic == topic {
@@ -95,7 +108,7 @@ impl Configuration {
 ///
 /// Only mqtt commands that are flat json objects are
 /// understood.
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Sensor {
     /// topic to listen to
     pub topic: String,
@@ -103,13 +116,25 @@ pub struct Sensor {
     pub key: String,
     /// rooms that should be considered present when
     /// when this sensor is triggered
+    #[serde(default)]
     pub rooms: Vec<String>,
     /// sometimes sensors send false if presents
     /// this options negates presences.
+    #[serde(default = "Sensor::default_invert_state")]
     pub invert_state: bool,
     /// delay to wait from present to absent,
     /// when the absent signals appears.
+    #[serde(default = "Sensor::default_delay")]
     pub delay: Duration,
+}
+
+impl Sensor {
+    pub fn default_invert_state() -> bool {
+        false
+    }
+    pub fn default_delay() -> Duration {
+        Duration::from_secs(60)
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -152,13 +177,14 @@ impl SensorState {
 
 /// A Switch is a device that receives commands
 /// like lights on/off
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Switch {
     /// uniq topic to listen for the switch
     pub topic: String,
     /// key for state
     pub key: String,
     /// rooms this switch is placed
+    #[serde(default)]
     pub rooms: Vec<String>,
     /// command control
     pub command: SwitchCommand,
@@ -170,7 +196,7 @@ impl Switch {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct SwitchCommand {
     /// turn on and off command
     /// This is a mustache template. The arguments given are
@@ -181,16 +207,19 @@ pub struct SwitchCommand {
     pub command: String,
     /// command to get state of the device
     /// useful at program start.
+    #[serde(default)]
     pub init_command: Option<String>,
     /// topic to send the command under
     pub topic: String,
     /// string to send for state argument to run switch on
+    #[serde(default = "SwitchCommand::default_on")]
     pub on: String,
     /// string to send for state argument to run switch off
+    #[serde(default = "SwitchCommand::default_off")]
     pub off: String,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Deserialize)]
 pub enum SwitchState {
     Unknown,
     On,
@@ -221,6 +250,12 @@ impl SwitchState {
 }
 
 impl SwitchCommand {
+    pub fn default_on() -> String {
+        "ON".to_string()
+    }
+    pub fn default_off() -> String {
+        "OFF".to_string()
+    }
     pub fn get_topic_and_command(&self, state: SwitchState, brightness: u8) -> (&String, String) {
         debug_assert_ne!(state, SwitchState::Unknown);
         let state_value = match state {
@@ -282,14 +317,22 @@ mod switch_tests {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Scene {
     /// name of the scene
     /// todo: use light-contoll/scene {"set":"<name>"} to change to theme
     pub name: String,
     /// brightness level of the scene
+    #[serde(default = "Scene::default_brightness")]
     pub brightness: u8,
     /// list all switch topics which should not turned on anymore.
     /// they will be turned off by entering this scene
+    #[serde(default)]
     pub exclude_switches: Vec<String>,
+}
+
+impl Scene {
+    pub fn default_brightness() -> u8 {
+        255
+    }
 }

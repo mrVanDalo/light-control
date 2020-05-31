@@ -10,15 +10,18 @@ mod dummy_configuration;
 mod mqtt;
 mod strategy;
 
-use crate::configuration::{SensorState, SwitchState};
+use crate::configuration::{Configuration, SensorState, SwitchState};
 use crate::dummy_configuration::hardcoded_config;
 use crate::strategy::{Strategy, SwitchCommand};
+use futures::future::err;
 use paho_mqtt::MessageBuilder;
 use serde::Deserialize;
+use std::path::PathBuf;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
+use structopt::StructOpt;
 
 const LIGHT_CONTROL_SET_TOPIC: &str = "control/lights/set";
 
@@ -29,10 +32,30 @@ pub struct LightControlSetCommand {
     pub scene: Option<String>,
 }
 
+#[derive(StructOpt)]
+#[structopt(name = "basic")]
+struct Opt {
+    /// Input file (in json)
+    #[structopt(name = "config.json", parse(from_os_str))]
+    config: PathBuf,
+}
+
 fn main() {
     env_logger::init();
+    // parse options
+    let opt = Opt::from_args();
+    if !opt.config.exists() {
+        error!("{}, does not exist", opt.config.to_str().unwrap());
+        std::process::exit(1);
+    }
 
-    let configuration = hardcoded_config();
+    // get configuration
+    let configuration = Configuration::load_from_file(&opt.config.to_str().unwrap())
+        .expect("couldn't parse configuration");
+    // //only for development
+    //let configuration = hardcoded_config();
+    //println!("config: {}", serde_json::to_string(&configuration).unwrap() );
+
     let mut topics_to_subscribe = configuration.get_topics();
     let mut strategy = Strategy::new(&configuration);
     let light_control_topic = LIGHT_CONTROL_SET_TOPIC.to_string();
