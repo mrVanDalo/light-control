@@ -1,10 +1,9 @@
 use crate::configuration::{Configuration, Credentials, Scene, Sensor, Switch, SwitchCommand};
 use std::time::Duration;
 
-/// hard coded for now
 pub fn hardcoded_config() -> Configuration {
+
     let sensors = vec![
-        //create_motion_sensor( "test/motion_sensor", rooms: vec!["bed_room".to_string()] ),
         create_motion_sensor("zigbee2mqtt/motion_sensor_2", vec!["bed_room".to_string()]),
         create_motion_sensor("zigbee2mqtt/motion_sensor_7", vec!["bed_room".to_string()]),
         create_motion_sensor(
@@ -24,6 +23,7 @@ pub fn hardcoded_config() -> Configuration {
         create_door_sensor("zigbee2mqtt/door_sensor_2", vec!["floor_room".to_string()]),
         create_door_sensor("zigbee2mqtt/door_sensor_4", vec!["floor_room".to_string()]),
     ];
+
     let switches = vec![
         create_light_switch("light_1", vec!["floor_room".to_string()]),
         create_light_switch("light_2", vec!["floor_room".to_string()]),
@@ -31,12 +31,11 @@ pub fn hardcoded_config() -> Configuration {
         create_light_switch("light_4", vec!["bath_room".to_string()]),
         create_light_switch("light_8", vec!["bed_room".to_string()]),
         create_sonoff_switch("PAL01", vec!["bed_room".to_string()]),
-        //create_sonoff_switch("PAL02", vec!["bed_room".to_string()]),
         create_sonoff_switch("PAL03", vec!["living_room".to_string()]),
         create_sonoff_switch("PAL04", vec!["bed_room".to_string()]),
-        //create_sonoff_switch("PAL05", vec!["living_room".to_string()]),
         create_sonoff_switch("PAL06", vec!["kitchen_room".to_string()]),
     ];
+
     let scenes = vec![
         Scene {
             room_tracking_enabled: true,
@@ -78,6 +77,7 @@ pub fn create_motion_sensor(topic: &str, rooms: Vec<String>) -> Sensor {
         rooms,
     }
 }
+
 pub fn create_door_sensor(topic: &str, rooms: Vec<String>) -> Sensor {
     Sensor {
         topic: topic.to_string(),
