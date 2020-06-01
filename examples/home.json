@@ -6,22 +6,21 @@
   },
   "scenes": [
     {
-      "name": "default"
-    },
-    {
-      "name": "outside",
-      "room_tracking_enabled": false
+      "name": "default",
+      "brightness": 255,
+      "exclude_switches": [],
+      "room_tracking_enabled": true
     },
     {
       "name": "night",
-      "room_tracking_enabled": false,
       "brightness": 25,
       "exclude_switches": [
         "stat/PAL01/RESULT",
         "stat/PAL03/RESULT",
         "stat/PAL04/RESULT",
         "zigbee2mqtt/light_2"
-      ]
+      ],
+      "room_tracking_enabled": false
     }
   ],
   "sensors": [
@@ -32,10 +31,7 @@
         "bed_room"
       ],
       "invert_state": false,
-      "delay": {
-        "secs": 60,
-        "nanos": 0
-      }
+      "delay": 60
     },
     {
       "topic": "zigbee2mqtt/motion_sensor_7",
@@ -44,10 +40,7 @@
         "bed_room"
       ],
       "invert_state": false,
-      "delay": {
-        "secs": 60,
-        "nanos": 0
-      }
+      "delay": 60
     },
     {
       "topic": "zigbee2mqtt/motion_sensor_1",
@@ -56,10 +49,7 @@
         "kitchen_room"
       ],
       "invert_state": false,
-      "delay": {
-        "secs": 60,
-        "nanos": 0
-      }
+      "delay": 60
     },
     {
       "topic": "zigbee2mqtt/motion_sensor_4",
@@ -68,10 +58,7 @@
         "living_room"
       ],
       "invert_state": false,
-      "delay": {
-        "secs": 60,
-        "nanos": 0
-      }
+      "delay": 60
     },
     {
       "topic": "zigbee2mqtt/motion_sensor_5",
@@ -80,10 +67,7 @@
         "living_room"
       ],
       "invert_state": false,
-      "delay": {
-        "secs": 60,
-        "nanos": 0
-      }
+      "delay": 60
     },
     {
       "topic": "zigbee2mqtt/motion_sensor_5",
@@ -92,10 +76,7 @@
         "bath_room"
       ],
       "invert_state": false,
-      "delay": {
-        "secs": 60,
-        "nanos": 0
-      }
+      "delay": 60
     },
     {
       "topic": "zigbee2mqtt/motion_sensor_8",
@@ -104,10 +85,7 @@
         "bath_room"
       ],
       "invert_state": false,
-      "delay": {
-        "secs": 60,
-        "nanos": 0
-      }
+      "delay": 60
     },
     {
       "topic": "zigbee2mqtt/door_sensor_2",
@@ -116,10 +94,7 @@
         "floor_room"
       ],
       "invert_state": true,
-      "delay": {
-        "secs": 90,
-        "nanos": 0
-      }
+      "delay": 120
     },
     {
       "topic": "zigbee2mqtt/door_sensor_4",
@@ -128,10 +103,7 @@
         "floor_room"
       ],
       "invert_state": true,
-      "delay": {
-        "secs": 90,
-        "nanos": 0
-      }
+      "delay": 120
     }
   ],
   "switches": [

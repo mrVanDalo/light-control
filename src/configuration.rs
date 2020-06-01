@@ -133,15 +133,15 @@ pub struct Sensor {
     /// delay to wait from present to absent,
     /// when the absent signals appears.
     #[serde(default = "Sensor::default_delay")]
-    pub delay: Duration,
+    pub delay: u64,
 }
 
 impl Sensor {
     pub fn default_invert_state() -> bool {
         false
     }
-    pub fn default_delay() -> Duration {
-        Duration::from_secs(60)
+    pub fn default_delay() -> u64 {
+        60
     }
 }
 

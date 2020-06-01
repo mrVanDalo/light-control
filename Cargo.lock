@@ -158,6 +158,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3baa92041a6fec78c687fa0cc2b3fae8884f743d672cf551bed1d6dac6988d0f"
 
 [[package]]
+name = "light-control"
+version = "1.0.0"
+dependencies = [
+ "env_logger 0.7.1",
+ "futures",
+ "log 0.4.8",
+ "mustache",
+ "paho-mqtt",
+ "serde",
+ "serde_json",
+ "structopt",
+]
+
+[[package]]
 name = "log"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -281,20 +295,6 @@ name = "regex-syntax"
 version = "0.6.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fe5bd57d1d7414c6b5ed48563a2c855d995ff777729dcd91c369ec7fea395ae"
-
-[[package]]
-name = "rust-iot"
-version = "0.1.0"
-dependencies = [
- "env_logger 0.7.1",
- "futures",
- "log 0.4.8",
- "mustache",
- "paho-mqtt",
- "serde",
- "serde_json",
- "structopt",
-]
 
 [[package]]
 name = "ryu"

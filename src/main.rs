@@ -51,6 +51,13 @@ struct Opt {
 }
 
 fn main() {
+
+    // //only for development
+    let configuration = hardcoded_config();
+    println!("config: {}", serde_json::to_string(&configuration).unwrap() );
+    std::process::exit(1);
+
+
     env_logger::init();
     // parse options
     let opt = Opt::from_args();
@@ -83,10 +90,6 @@ fn main() {
             }
         });
     }
-
-    // //only for development
-    //let configuration = hardcoded_config();
-    //println!("config: {}", serde_json::to_string(&configuration).unwrap() );
 
     let mut topics_to_subscribe = configuration.get_topics();
     let mut strategy = Strategy::new(&configuration);

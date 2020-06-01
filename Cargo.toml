@@ -1,6 +1,6 @@
 [package]
-name = "rust-iot"
-version = "0.1.0"
+name = "light-control"
+version = "1.0.0"
 authors = ["Ingolf Wagner <contact@ingolf-wagner.de>"]
 edition = "2018"
 

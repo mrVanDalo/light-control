@@ -74,7 +74,7 @@ pub fn create_motion_sensor(topic: &str, rooms: Vec<String>) -> Sensor {
         topic: topic.to_string(),
         key: "occupancy".to_string(),
         invert_state: false,
-        delay: Duration::new(60, 0),
+        delay: 60,
         rooms,
     }
 }
@@ -83,7 +83,7 @@ pub fn create_door_sensor(topic: &str, rooms: Vec<String>) -> Sensor {
         topic: topic.to_string(),
         key: "contact".to_string(),
         invert_state: true,
-        delay: Duration::new(120, 0),
+        delay: 120,
         rooms,
     }
 }

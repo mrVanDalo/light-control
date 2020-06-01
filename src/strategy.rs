@@ -46,7 +46,7 @@ impl Strategy {
     /// create a new StateMemory object out of a Configuration
     pub fn new(configuration: &Configuration) -> Self {
         let mut room_sensors = HashMap::new();
-        let mut look_ahead = Duration::from_secs(300);
+        let mut look_ahead = 300;
         for sensor in configuration.sensors.iter() {
             for room in sensor.rooms.iter() {
                 if !room_sensors.contains_key(room) {
@@ -56,15 +56,13 @@ impl Strategy {
                 sensors_memory.insert(
                     sensor.topic.clone(),
                     SensorMemory {
-                        delay: sensor.delay,
+                        delay: Duration::from_secs(sensor.delay),
                         state: SensorMemoryState::Uninitialized,
                     },
                 );
                 info!(
                     "{} contains {} with delay: {}s",
-                    room,
-                    sensor.topic,
-                    sensor.delay.as_secs()
+                    room, sensor.topic, sensor.delay
                 );
             }
             if sensor.delay < look_ahead {
@@ -79,15 +77,12 @@ impl Strategy {
                 rooms: switch.rooms.clone(),
             });
         }
-        if look_ahead < Duration::from_secs(10) {
+        if look_ahead < 10 {
             warn!("warning: you have configured a sensor delay below 10 seconds, this can cause wrong location calculation");
         }
-        info!("look ahead: {}s", look_ahead.as_secs());
+        info!("look ahead: {}s", look_ahead);
         let current_room_threshold = look_ahead / 2;
-        info!(
-            "current room threshold: {}s",
-            current_room_threshold.as_secs()
-        );
+        info!("current room threshold: {}s", current_room_threshold);
         if look_ahead < current_room_threshold {
             warn!("look ahead is smaller than current room threshold, lights will be turned off before current room detections is calculated")
         }
@@ -107,12 +102,12 @@ impl Strategy {
             initialisation_time: Instant::now(),
             room_sensors,
             room_switches,
-            look_ahead,
+            look_ahead: Duration::from_secs(look_ahead),
             room_state: HashMap::new(),
             current_room: None,
             disabled_switches,
             brightness,
-            current_room_threshold,
+            current_room_threshold: Duration::from_secs(current_room_threshold),
             room_tracking_enabled: true,
         }
     }
@@ -446,7 +441,7 @@ mod tests {
         assert!(instant1.elapsed() > instant2.elapsed())
     }
 
-    fn create_sensor(topic: &str, rooms: Vec<String>, delay: Duration) -> Sensor {
+    fn create_sensor(topic: &str, rooms: Vec<String>, delay: u64) -> Sensor {
         Sensor {
             topic: topic.to_string(),
             key: "occupancy".to_string(),
@@ -475,12 +470,12 @@ mod tests {
                 create_sensor(
                     "motion1",
                     vec!["room1".to_string()],
-                    Duration::from_secs(10),
+                    10,
                 ),
                 create_sensor(
                     "motion2",
                     vec!["room1".to_string()],
-                    Duration::from_secs(10),
+                    10,
                 ),
             ],
             switches: vec![create_light_switch("light1", vec!["room1".to_string()])],
