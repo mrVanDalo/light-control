@@ -1,0 +1,25 @@
+[package]
+name = "light-control"
+version = "1.0.0"
+authors = ["Ingolf Wagner <contact@ingolf-wagner.de>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = "0.4.8"
+env_logger = "0.7.1"
+futures = "0.1"
+mustache = "*"
+serde_json = "1.0"
+structopt = "0.3"
+
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]
+
+
+[dependencies.paho-mqtt]
+version = "0.6"
+defaul-features = false
+features = ["bundled"]
