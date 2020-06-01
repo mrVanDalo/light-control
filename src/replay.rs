@@ -41,7 +41,7 @@ function publish(){{
 }}
 
 "#,
-            configuration.credentials.host, // todo: not really correct
+            configuration.credentials.host,
             configuration.credentials.user,
             configuration.credentials.password
         );
