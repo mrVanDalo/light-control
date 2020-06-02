@@ -40,23 +40,19 @@ struct Opt {
     /// Input file (in json)
     #[structopt(name = "config.json", parse(from_os_str))]
     config: PathBuf,
-
     /// replay script output path
     #[structopt(long, parse(from_os_str))]
     replay_script: Option<PathBuf>,
-
     /// replay configuration output path
     #[structopt(long, parse(from_os_str))]
     replay_config: Option<PathBuf>,
 }
 
 fn main() {
-
     // //only for development
-    let configuration = hardcoded_config();
-    println!("config: {}", serde_json::to_string(&configuration).unwrap() );
-    std::process::exit(1);
-
+    //let configuration = hardcoded_config();
+    //println!("config: {}", serde_json::to_string(&configuration).unwrap() );
+    //std::process::exit(1);
 
     env_logger::init();
     // parse options

@@ -10,7 +10,7 @@ This generates a
 * `2020-05-23_233423.json`: configuration used for that run
 
 ```shell script
-export RUST_LOG=rust_iot=trace
+export RUST_LOG=light_control=trace
 TIME_STAMP=`date +%Y-%m-%d_%H%M%S`
 cargo run \
   --color=always \

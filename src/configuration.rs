@@ -7,7 +7,6 @@ use serde_json::Value;
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
-use std::time::Duration;
 
 /// Room setup
 #[derive(Clone, Deserialize, Serialize)]
@@ -130,8 +129,9 @@ pub struct Sensor {
     /// this options negates presences.
     #[serde(default = "Sensor::default_invert_state")]
     pub invert_state: bool,
-    /// delay to wait from present to absent,
-    /// when the absent signals appears.
+    /// how long to wait, in seconds, till
+    /// a present state becames absent after the devices publishes
+    /// the absent message.
     #[serde(default = "Sensor::default_delay")]
     pub delay: u64,
 }
@@ -196,9 +196,16 @@ pub struct Switch {
     pub rooms: Vec<String>,
     /// command control
     pub command: SwitchCommand,
+    /// how long to wait, in seconds, till the switch is turned off
+    /// once it's room becomes the absent state.
+    #[serde(default = "Switch::default_delay")]
+    pub delay: u64,
 }
 
 impl Switch {
+    pub fn default_delay() -> u64 {
+        0
+    }
     pub fn get_topic_and_command(&self, state: SwitchState, brightness: u8) -> (&String, String) {
         self.command.get_topic_and_command(state, brightness)
     }
