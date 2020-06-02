@@ -1,13 +1,14 @@
 extern crate mustache;
 
 use self::mustache::MapBuilder;
+use serde::private::ser::serialize_tagged_newtype;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
-use std::time::Duration;
+use std::panic::resume_unwind;
 
 /// Room setup
 #[derive(Clone, Deserialize, Serialize)]
@@ -27,6 +28,26 @@ pub struct Credentials {
 }
 
 impl Configuration {
+    pub fn get_max_sensor_delay(&self) -> u64 {
+        let mut result = 0;
+        for sensor in self.sensors.iter() {
+            if result < sensor.delay {
+                result = sensor.delay;
+            }
+        }
+        result
+    }
+
+    pub fn get_min_sensor_delay(&self) -> u64 {
+        let mut result = self.get_max_sensor_delay();
+        for sensor in self.sensors.iter() {
+            if result > sensor.delay {
+                result = sensor.delay;
+            }
+        }
+        result
+    }
+
     pub fn load_from_file(path: &str) -> Result<Self, Box<dyn Error>> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
@@ -130,8 +151,9 @@ pub struct Sensor {
     /// this options negates presences.
     #[serde(default = "Sensor::default_invert_state")]
     pub invert_state: bool,
-    /// delay to wait from present to absent,
-    /// when the absent signals appears.
+    /// how long to wait, in seconds, till
+    /// a present state becames absent after the devices publishes
+    /// the absent message.
     #[serde(default = "Sensor::default_delay")]
     pub delay: u64,
 }
@@ -196,9 +218,16 @@ pub struct Switch {
     pub rooms: Vec<String>,
     /// command control
     pub command: SwitchCommand,
+    /// how long to wait, in seconds, till the switch is turned off
+    /// once it's room becomes the absent state.
+    #[serde(default = "Switch::default_delay")]
+    pub delay: u64,
 }
 
 impl Switch {
+    pub fn default_delay() -> u64 {
+        0
+    }
     pub fn get_topic_and_command(&self, state: SwitchState, brightness: u8) -> (&String, String) {
         self.command.get_topic_and_command(state, brightness)
     }

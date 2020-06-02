@@ -1,8 +1,6 @@
 use crate::configuration::{Configuration, Credentials, Scene, Sensor, Switch, SwitchCommand};
-use std::time::Duration;
 
 pub fn hardcoded_config() -> Configuration {
-
     let sensors = vec![
         create_motion_sensor("zigbee2mqtt/motion_sensor_2", vec!["bed_room".to_string()]),
         create_motion_sensor("zigbee2mqtt/motion_sensor_7", vec!["bed_room".to_string()]),
@@ -93,6 +91,7 @@ pub fn create_light_switch(name: &str, rooms: Vec<String>) -> Switch {
         topic: format!("zigbee2mqtt/{}", name),
         rooms: rooms,
         key: "state".to_string(),
+        delay: 0,
         //state: SwitchState::Off,
         command: SwitchCommand {
             topic: format!("zigbee2mqtt/{}/set", name),
@@ -109,6 +108,7 @@ pub fn create_sonoff_switch(name: &str, rooms: Vec<String>) -> Switch {
         topic: format!("stat/{}/RESULT", name),
         rooms: rooms,
         key: "POWER".to_string(),
+        delay: 0,
         //state: SwitchState::Off,
         command: SwitchCommand {
             topic: format!("cmnd/{}/POWER", name),

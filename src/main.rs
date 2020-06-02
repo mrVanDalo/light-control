@@ -40,23 +40,19 @@ struct Opt {
     /// Input file (in json)
     #[structopt(name = "config.json", parse(from_os_str))]
     config: PathBuf,
-
     /// replay script output path
     #[structopt(long, parse(from_os_str))]
     replay_script: Option<PathBuf>,
-
     /// replay configuration output path
     #[structopt(long, parse(from_os_str))]
     replay_config: Option<PathBuf>,
 }
 
 fn main() {
-
     // //only for development
-    let configuration = hardcoded_config();
-    println!("config: {}", serde_json::to_string(&configuration).unwrap() );
-    std::process::exit(1);
-
+    //let configuration = hardcoded_config();
+    //println!("config: {}", serde_json::to_string(&configuration).unwrap() );
+    //std::process::exit(1);
 
     env_logger::init();
     // parse options
@@ -194,11 +190,13 @@ fn main() {
         ping_sender.send(UpdateMessage::Ping);
     });
 
-    // deinit after a while
+    // take over all devices after a while
     let deinit_sender = update_sender.clone();
+    let takeover_delay = configuration.get_max_sensor_delay() + 10;
+    info!("takeover delay : {}s", takeover_delay);
     thread::spawn(move || {
         let instant = Instant::now();
-        thread::sleep(Duration::from_secs(130)); // todo : instead of 130 it should be the maximum number of all delays
+        thread::sleep(Duration::from_secs(takeover_delay));
         deinit_sender.send(UpdateMessage::Deinit(instant));
     });
 
