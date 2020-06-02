@@ -1,12 +1,14 @@
 extern crate mustache;
 
 use self::mustache::MapBuilder;
+use serde::private::ser::serialize_tagged_newtype;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
+use std::panic::resume_unwind;
 
 /// Room setup
 #[derive(Clone, Deserialize, Serialize)]
@@ -26,6 +28,26 @@ pub struct Credentials {
 }
 
 impl Configuration {
+    pub fn get_max_sensor_delay(&self) -> u64 {
+        let mut result = 0;
+        for sensor in self.sensors.iter() {
+            if result < sensor.delay {
+                result = sensor.delay;
+            }
+        }
+        result
+    }
+
+    pub fn get_min_sensor_delay(&self) -> u64 {
+        let mut result = self.get_max_sensor_delay();
+        for sensor in self.sensors.iter() {
+            if result > sensor.delay {
+                result = sensor.delay;
+            }
+        }
+        result
+    }
+
     pub fn load_from_file(path: &str) -> Result<Self, Box<dyn Error>> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);

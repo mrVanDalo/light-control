@@ -34,6 +34,9 @@ pub struct Strategy {
     /// determine the current_room
     look_ahead: Duration,
 
+    /// maximal delay of all sensors
+    max_delay: Duration,
+
     /// threshold for current room determination.
     /// If a new room is shorter absent than the current room
     /// it must be shorter by the factor of this factor
@@ -47,7 +50,6 @@ impl Strategy {
     /// create a new StateMemory object out of a Configuration
     pub fn new(configuration: &Configuration) -> Self {
         let mut room_sensors = HashMap::new();
-        let mut look_ahead = 300;
         for sensor in configuration.sensors.iter() {
             for room in sensor.rooms.iter() {
                 if !room_sensors.contains_key(room) {
@@ -66,9 +68,6 @@ impl Strategy {
                     room, sensor.topic, sensor.delay
                 );
             }
-            if sensor.delay < look_ahead {
-                look_ahead = sensor.delay;
-            }
         }
         let mut room_switches = Vec::new();
         for switch in configuration.switches.iter() {
@@ -79,6 +78,7 @@ impl Strategy {
                 delay: Duration::from_secs(switch.delay),
             });
         }
+        let mut look_ahead = configuration.get_min_sensor_delay();
         if look_ahead < 10 {
             warn!("warning: you have configured a sensor delay below 10 seconds, this can cause wrong location calculation");
         }
@@ -112,6 +112,7 @@ impl Strategy {
             brightness,
             current_room_threshold: Duration::from_secs(current_room_threshold),
             room_tracking_enabled,
+            max_delay: Duration::from_secs(configuration.get_max_sensor_delay()),
         }
     }
 
@@ -163,13 +164,18 @@ impl Strategy {
     pub fn calculate_current_room(&mut self) {
         let rooms = self.get_room_state(self.look_ahead);
 
-        let mut current_room_absents = Duration::from_secs(60 * 55); // todo use Option here
-        let mut youngest_absents = Duration::from_secs(60 * 60); // todo use Option here
-        debug_assert!(youngest_absents + self.current_room_threshold > current_room_absents);
+        // just start with big impossible numbers
+        let mut current_room_absents = 10 * (self.max_delay + self.look_ahead);
 
-        let mut youngest_room = "".to_string();
+        // just start with big impossible numbers
+        let mut youngest_absents =
+            10 * (self.max_delay + self.look_ahead) + Duration::from_secs(10);
+        let mut youngest_room = "".to_string(); // todo use Option here
+
         let mut present_counter = 0;
-        let mut present_room = "".to_string();
+        let mut present_room = "".to_string(); // todo use Option here
+
+        debug_assert!(youngest_absents + self.current_room_threshold > current_room_absents);
 
         for (room, state) in rooms {
             match state {
@@ -346,8 +352,6 @@ impl Strategy {
         let mut rooms = HashMap::new();
 
         for (room, room_sensors) in self.room_sensors.iter() {
-            // current room state contains the state which is interesting for trigger_commands
-            // if it is set to AbsentSince() the delay parameter is already considered
             let mut current_room_state: SensorMemoryNaiveState =
                 SensorMemoryNaiveState::Uninitialized;
 

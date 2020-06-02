@@ -190,11 +190,13 @@ fn main() {
         ping_sender.send(UpdateMessage::Ping);
     });
 
-    // deinit after a while
+    // take over all devices after a while
     let deinit_sender = update_sender.clone();
+    let takeover_delay = configuration.get_max_sensor_delay() + 10;
+    info!("takeover delay : {}s", takeover_delay);
     thread::spawn(move || {
         let instant = Instant::now();
-        thread::sleep(Duration::from_secs(130)); // todo : instead of 130 it should be the maximum number of all delays
+        thread::sleep(Duration::from_secs(takeover_delay));
         deinit_sender.send(UpdateMessage::Deinit(instant));
     });
 
