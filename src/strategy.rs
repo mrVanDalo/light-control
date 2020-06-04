@@ -2,7 +2,11 @@ use crate::configuration::{Configuration, SensorState, SwitchState};
 use crate::strategy::SensorMemoryState::{AbsentSince, Present, Uninitialized};
 use crate::{SensorChangeContent, SwitchChangeContent};
 use serde::export::Formatter;
-use std::collections::HashMap;
+use std::cmp::Ordering;
+use std::cmp::Ordering::Less;
+use std::collections::{BTreeSet, HashMap};
+use std::iter::FromIterator;
+use std::thread::current;
 use std::time::{Duration, Instant};
 
 type Topic = String;
@@ -163,86 +167,96 @@ impl Strategy {
 
     pub fn calculate_current_room(&mut self) {
         let rooms = self.get_room_state(self.look_ahead);
-
-        // just start with big impossible numbers
-        let mut current_room_absents = 10 * (self.max_delay + self.look_ahead);
-
-        // just start with big impossible numbers
-        let mut youngest_absents =
-            10 * (self.max_delay + self.look_ahead) + Duration::from_secs(10);
-        let mut youngest_room = "".to_string(); // todo use Option here
-
-        let mut present_counter = 0;
-        let mut present_room = "".to_string(); // todo use Option here
-
-        debug_assert!(youngest_absents + self.current_room_threshold > current_room_absents);
-
-        for (room, state) in rooms {
-            match state {
-                SensorMemoryNaiveState::Present => {
-                    present_counter = present_counter + 1;
-                    present_room = room;
-
-                    if present_counter > 1 {
-                        // to much rooms detected presents
-                        return;
-                    };
-                }
-                SensorMemoryNaiveState::AbsentSince(duration) => {
-                    if self.current_room.is_some() {
-                        if self.current_room.as_ref().unwrap() == &room {
-                            current_room_absents = duration;
-                        }
-                    }
-                    if duration < youngest_absents {
-                        youngest_absents = duration;
-                        youngest_room = room;
-                    }
-                }
-                SensorMemoryNaiveState::Uninitialized => {}
-            }
+        // prepare sorted_rooms list
+        let mut sorted_rooms = BTreeSet::new();
+        for (room, sensor_state) in rooms.iter() {
+            sorted_rooms.insert(RoomState {
+                room: room.clone(),
+                state: sensor_state.clone(),
+            });
         }
-
-        if present_counter == 1 {
-            if self.current_room.is_none() {
-                self.current_room = Some(present_room);
+        let sorted_rooms: Vec<&RoomState> = Vec::from_iter(sorted_rooms.iter());
+        if sorted_rooms.get(1).is_none() {
+            //debug!("because only one room is known current_room tracking is disabled");
+            self.current_room = None;
+            return;
+        }
+        if sorted_rooms.get(1).unwrap().state == SensorMemoryNaiveState::Present {
+            // to much rooms are present
+            return;
+        }
+        if sorted_rooms.is_empty() {
+            //debug!("because no rooms are defined, current_room tracking is disabled");
+            return;
+        }
+        if sorted_rooms.get(0).unwrap().state == SensorMemoryNaiveState::Present {
+            let current_room = sorted_rooms
+                .get(0)
+                .map(|room_state| room_state.room.clone());
+            if current_room == self.current_room {
+                return;
+            }
+            self.current_room = current_room;
+            debug!(
+                "because one room is present and all other rooms are absent, current_room : {:?}",
+                self.current_room
+            );
+            return;
+        }
+        if sorted_rooms.get(0).unwrap().state == SensorMemoryNaiveState::Uninitialized {
+            self.current_room = None;
+            //debug!("because all rooms are uninitialized no current_room is defined");
+            return;
+        }
+        if self.current_room.is_none() {
+            self.current_room = sorted_rooms
+                .get(0)
+                .map(|room_state| room_state.room.clone());
+            debug!(
+                "because no current_room is defined, we use the room with the lowest absents: {:?}",
+                self.current_room
+            );
+            return;
+        }
+        let current_room = self.current_room.clone().unwrap();
+        let mut room_compare_index = 1;
+        if sorted_rooms.get(0).unwrap().room != current_room {
+            room_compare_index = 0;
+        }
+        match (
+            &sorted_rooms.get(room_compare_index).unwrap().state,
+            rooms.get(&current_room).unwrap(),
+        ) {
+            (SensorMemoryNaiveState::Uninitialized, _) => {}
+            (SensorMemoryNaiveState::AbsentSince(_), SensorMemoryNaiveState::Uninitialized) => {
+                self.current_room = sorted_rooms
+                    .get(room_compare_index)
+                    .map(|room_state| room_state.room.clone());
                 debug!(
-                    "because of single presents, current_room is set to : {}",
-                    self.current_room.as_ref().unwrap()
+                    "because current_room uninitialized, new current room is : {:?}",
+                    self.current_room
                 );
                 return;
             }
-            if self.current_room.as_ref().unwrap() == &present_room {
-                return;
+            (SensorMemoryNaiveState::AbsentSince(_), SensorMemoryNaiveState::Present) => {}
+            (
+                SensorMemoryNaiveState::AbsentSince(other_room_duration),
+                SensorMemoryNaiveState::AbsentSince(current_room_duration),
+            ) => {
+                if other_room_duration > current_room_duration {
+                    // current_room is still shorter absent
+                    return;
+                }
+                if current_room_duration > &self.current_room_threshold {
+                    self.current_room = sorted_rooms
+                        .get(room_compare_index)
+                        .map(|room_state| room_state.room.clone());
+                    debug!("because current_room is longer absent than another room new current room is : {:?}", self.current_room);
+                    return;
+                }
             }
-            // current_room_absents needs to be set now
-            if current_room_absents < self.current_room_threshold {
-                return;
-            }
-            debug!(
-                "because current_room is to long absent ({} - {}s), new current_room is set to : {}",
-                self.current_room.as_ref().unwrap_or(&"current_room not set yet".to_string()),
-                current_room_absents.as_secs(),
-                present_room
-            );
-            self.current_room = Some(present_room);
-            return;
-        }
-
-        if self.current_room.is_none() {
-            // don't compare the longest absence since if no presents was ever detected
-            return;
-        }
-        if youngest_absents + self.current_room_threshold < current_room_absents {
-            debug!(
-                "because of current_room ({} - {}s) is longer absent than another room ({}s), current_room is set to : {}",
-                self.current_room.as_ref().unwrap_or(&"---".to_string()),
-                current_room_absents.as_secs(),
-                youngest_absents.as_secs(),
-                youngest_room
-            );
-            self.current_room = Some(youngest_room);
-            return;
+            // should never happen
+            (SensorMemoryNaiveState::Present, _) => {}
         }
     }
 
@@ -371,9 +385,7 @@ impl Strategy {
                         SensorMemoryNaiveState::AbsentSince(current_duration),
                         SensorMemoryNaiveState::AbsentSince(new_duration),
                     ) => {
-                        if current_duration < new_duration {
-                            trace!("[1] current room state = {}", current_room_state);
-                        } else {
+                        if current_duration > new_duration {
                             current_room_state =
                                 SensorMemoryNaiveState::AbsentSince(new_duration.clone());
                         }
@@ -393,15 +405,119 @@ impl Strategy {
                         current_room_state = SensorMemoryNaiveState::AbsentSince(duration.clone());
                     }
                 };
-                trace!(
-                    "[2] current room state = {}, sensor state = {}",
-                    current_room_state,
-                    sensor_memory.state
-                );
             }
             rooms.insert(room.clone(), current_room_state);
         }
         rooms
+    }
+}
+
+/// Sorting structure for room state
+#[derive(Debug)]
+pub struct RoomState {
+    room: String,
+    state: SensorMemoryNaiveState,
+}
+impl Ord for RoomState {
+    /// If duration is not set, it means it is present
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (&self.state, &other.state) {
+            (SensorMemoryNaiveState::Present, SensorMemoryNaiveState::Present) => {
+                self.room.cmp(&other.room)
+            }
+            (SensorMemoryNaiveState::AbsentSince(_), SensorMemoryNaiveState::Present) => {
+                Ordering::Greater
+            }
+            (SensorMemoryNaiveState::Present, SensorMemoryNaiveState::AbsentSince(_)) => {
+                Ordering::Less
+            }
+            (SensorMemoryNaiveState::AbsentSince(me), SensorMemoryNaiveState::AbsentSince(it)) => {
+                me.cmp(&it)
+            }
+            (SensorMemoryNaiveState::Uninitialized, SensorMemoryNaiveState::Uninitialized) => {
+                Ordering::Equal
+            }
+            (SensorMemoryNaiveState::Uninitialized, SensorMemoryNaiveState::Present) => {
+                Ordering::Greater
+            }
+            (SensorMemoryNaiveState::Uninitialized, SensorMemoryNaiveState::AbsentSince(_)) => {
+                Ordering::Greater
+            }
+            (SensorMemoryNaiveState::Present, SensorMemoryNaiveState::Uninitialized) => {
+                Ordering::Less
+            }
+            (SensorMemoryNaiveState::AbsentSince(_), SensorMemoryNaiveState::Uninitialized) => {
+                Ordering::Less
+            }
+        }
+    }
+}
+impl PartialOrd for RoomState {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl PartialEq for RoomState {
+    fn eq(&self, other: &Self) -> bool {
+        self.room.eq(&other.room)
+    }
+}
+impl Eq for RoomState {}
+
+#[cfg(test)]
+mod test_RoomAbsents {
+    use super::*;
+
+    use std::collections::BTreeSet;
+    use std::iter::FromIterator;
+    use std::ops::Bound::Included;
+
+    #[test]
+    fn test_room_absent_order() {
+        let mut set = BTreeSet::new();
+        set.insert(RoomState {
+            room: "test1".to_string(),
+            state: SensorMemoryNaiveState::AbsentSince(Duration::from_secs(20)),
+        });
+        set.insert(RoomState {
+            room: "test2".to_string(),
+            state: SensorMemoryNaiveState::Present,
+        });
+        set.insert(RoomState {
+            room: "test3".to_string(),
+            state: SensorMemoryNaiveState::AbsentSince(Duration::from_secs(100)),
+        });
+        set.insert(RoomState {
+            room: "test4".to_string(),
+            state: SensorMemoryNaiveState::Present,
+        });
+        set.insert(RoomState {
+            room: "test5".to_string(),
+            state: SensorMemoryNaiveState::Uninitialized,
+        });
+        set.insert(RoomState {
+            room: "test6".to_string(),
+            state: SensorMemoryNaiveState::AbsentSince(Duration::from_secs(2)),
+        });
+        let vec: Vec<&RoomState> = Vec::from_iter(set.iter());
+        assert_eq!(vec.get(0).unwrap().state, SensorMemoryNaiveState::Present);
+        assert_eq!(vec.get(1).unwrap().state, SensorMemoryNaiveState::Present);
+        assert_eq!(
+            vec.get(2).unwrap().state,
+            SensorMemoryNaiveState::AbsentSince(Duration::from_secs(2))
+        );
+        assert_eq!(
+            vec.get(3).unwrap().state,
+            SensorMemoryNaiveState::AbsentSince(Duration::from_secs(20))
+        );
+        assert_eq!(
+            vec.get(4).unwrap().state,
+            SensorMemoryNaiveState::AbsentSince(Duration::from_secs(100))
+        );
+        assert_eq!(
+            vec.get(5).unwrap().state,
+            SensorMemoryNaiveState::Uninitialized
+        );
     }
 }
 
