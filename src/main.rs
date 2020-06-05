@@ -221,7 +221,9 @@ fn main() {
     // main loop
     for update_message in update_receiver.iter() {
         match update_message {
-            UpdateMessage::Ping => {}
+            UpdateMessage::Ping => {
+                strategy.calculate_current_room();
+            }
             UpdateMessage::Deinit(instant) => {
                 strategy.replace_uninitialized_with_absents(instant);
             }
@@ -235,11 +237,13 @@ fn main() {
                 strategy.set_brightness(brightness);
                 strategy.set_room_tracking_enabled(room_tracking_enabled);
                 strategy.set_disabled_switches(exclude_switches);
-                strategy.trigger_commands();
+                for switch_command in strategy.trigger_commands(false) {
+                    publish_sender.send(switch_command);
+                }
+                continue;
             }
         };
-        strategy.calculate_current_room();
-        for switch_command in strategy.trigger_commands() {
+        for switch_command in strategy.trigger_commands(false) {
             publish_sender.send(switch_command);
         }
     }

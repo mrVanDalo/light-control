@@ -141,6 +141,8 @@ pub struct Sensor {
     pub topic: String,
     /// json key to read the state
     pub key: String,
+    // todo : make this only one string, having multiple rooms fucks with the room detection
+    // todo : instead create a parameter, which triggers also other rooms but without detection for theses rooms
     /// rooms that should be considered present when
     /// when this sensor is triggered
     #[serde(default)]
@@ -315,8 +317,6 @@ impl SwitchCommand {
 mod switch_tests {
     use super::*;
 
-    // todo write parse topic tests
-
     #[test]
     fn test_get_topic_and_command() {
         let switch_command = SwitchCommand {
@@ -359,6 +359,9 @@ pub struct Scene {
     /// brightness level of the scene
     #[serde(default = "Scene::default_brightness")]
     pub brightness: u8,
+    // todo : rename to disable_switches
+    // todo : add to enable_switches
+    // todo : add to ignore_switches
     /// list all switch topics which should not turned on anymore.
     /// they will be turned off by entering this scene
     #[serde(default)]

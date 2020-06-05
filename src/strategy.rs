@@ -1,6 +1,10 @@
+mod room_state;
+mod sensor_memory;
 mod sensor_states;
 
 use crate::configuration::{Configuration, SensorState, SwitchState};
+use crate::strategy::room_state::RoomState;
+use crate::strategy::sensor_memory::SensorMemory;
 use crate::strategy::sensor_states::{SensorMemoryNaiveState, SensorMemoryState};
 use crate::{SensorChangeContent, SwitchChangeContent};
 use std::cmp::Ordering;
@@ -11,6 +15,19 @@ use std::time::{Duration, Instant};
 type Topic = String;
 type Room = String;
 type Sensors = HashMap<Topic, SensorMemory>;
+
+pub struct SwitchCommand {
+    pub topic: String,
+    pub state: SwitchState,
+    pub brightness: u8,
+}
+
+pub struct SwitchMemory {
+    pub topic: String,
+    pub state: SwitchState,
+    pub rooms: Vec<String>,
+    pub delay: Duration,
+}
 
 pub struct Strategy {
     /// all known sensors grouped room
@@ -252,9 +269,13 @@ impl Strategy {
         }
     }
 
-    /// find situation where a switch has a state it shouldn't have
-    /// and create command to correct that
-    pub fn trigger_commands(&mut self) -> Vec<SwitchCommand> {
+    /// trigger switch commands to set switch to expected state
+    ///
+    /// # Arguments
+    ///
+    /// * `ignore_current_state` : if set to true, all switch commands will be triggered.
+    ///    if false, only states that differ current state will trigger commands
+    pub fn trigger_commands(&mut self, ignore_current_state: bool) -> Vec<SwitchCommand> {
         let new_room_states = self.get_room_state(Duration::from_secs(0));
         Strategy::print_room_update_information(&new_room_states, &self.room_state);
         self.room_state = new_room_states;
@@ -303,7 +324,7 @@ impl Strategy {
             if should_state.is_none() {
                 continue;
             }
-            if should_state.unwrap() != switch.state {
+            if should_state.unwrap() != switch.state || ignore_current_state {
                 trace!("set {} -> {:?}", switch.topic, should_state.unwrap());
                 commands.push(SwitchCommand {
                     topic: switch.topic.clone(),
@@ -406,162 +427,6 @@ impl Strategy {
         }
         rooms
     }
-}
-
-/// Sorting structure for room state
-#[derive(Debug)]
-pub struct RoomState {
-    room: String,
-    state: SensorMemoryNaiveState,
-}
-impl Ord for RoomState {
-    /// If duration is not set, it means it is present
-    fn cmp(&self, other: &Self) -> Ordering {
-        match &self.state.cmp(&other.state) {
-            Ordering::Equal => self.room.cmp(&other.room),
-            otherwise => otherwise.clone(),
-        }
-    }
-}
-impl PartialOrd for RoomState {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-impl PartialEq for RoomState {
-    fn eq(&self, other: &Self) -> bool {
-        self.room.eq(&other.room)
-    }
-}
-impl Eq for RoomState {}
-
-#[cfg(test)]
-mod test_room_absents {
-    use super::*;
-
-    use std::collections::BTreeSet;
-    use std::iter::FromIterator;
-    use std::ops::Bound::Included;
-
-    #[test]
-    fn test_room_absent_order() {
-        let mut set = BTreeSet::new();
-        set.insert(RoomState {
-            room: "test1".to_string(),
-            state: SensorMemoryNaiveState::AbsentSince(Duration::from_secs(20)),
-        });
-        set.insert(RoomState {
-            room: "test2".to_string(),
-            state: SensorMemoryNaiveState::Present,
-        });
-        set.insert(RoomState {
-            room: "test3".to_string(),
-            state: SensorMemoryNaiveState::AbsentSince(Duration::from_secs(100)),
-        });
-        set.insert(RoomState {
-            room: "test4".to_string(),
-            state: SensorMemoryNaiveState::Present,
-        });
-        set.insert(RoomState {
-            room: "test5".to_string(),
-            state: SensorMemoryNaiveState::Uninitialized,
-        });
-        set.insert(RoomState {
-            room: "test6".to_string(),
-            state: SensorMemoryNaiveState::AbsentSince(Duration::from_secs(2)),
-        });
-        let vec: Vec<&RoomState> = Vec::from_iter(set.iter());
-        assert_eq!(vec.get(0).unwrap().state, SensorMemoryNaiveState::Present);
-        assert_eq!(vec.get(1).unwrap().state, SensorMemoryNaiveState::Present);
-        assert_eq!(
-            vec.get(2).unwrap().state,
-            SensorMemoryNaiveState::AbsentSince(Duration::from_secs(2))
-        );
-        assert_eq!(
-            vec.get(3).unwrap().state,
-            SensorMemoryNaiveState::AbsentSince(Duration::from_secs(20))
-        );
-        assert_eq!(
-            vec.get(4).unwrap().state,
-            SensorMemoryNaiveState::AbsentSince(Duration::from_secs(100))
-        );
-        assert_eq!(
-            vec.get(5).unwrap().state,
-            SensorMemoryNaiveState::Uninitialized
-        );
-    }
-}
-
-pub struct SwitchCommand {
-    pub topic: String,
-    pub state: SwitchState,
-    pub brightness: u8,
-}
-
-pub struct SensorMemory {
-    pub delay: Duration,
-    pub state: SensorMemoryState,
-}
-
-impl SensorMemory {
-    pub fn get_naive_state(&self, look_ahead: Duration) -> SensorMemoryNaiveState {
-        match self.state {
-            SensorMemoryState::Uninitialized => SensorMemoryNaiveState::Uninitialized,
-            SensorMemoryState::Present => SensorMemoryNaiveState::Present,
-            SensorMemoryState::AbsentSince(instant) => {
-                let duration = instant.elapsed() + look_ahead;
-                if duration < self.delay {
-                    SensorMemoryNaiveState::Present
-                } else {
-                    SensorMemoryNaiveState::AbsentSince(duration - self.delay)
-                }
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests_sensor_memory {
-    use super::*;
-
-    #[test]
-    fn test_get_naive_state_1() {
-        let instant = Instant::now() - Duration::from_secs(30);
-        let sensor_memory = SensorMemory {
-            delay: Duration::from_secs(60),
-            state: SensorMemoryState::AbsentSince(instant),
-        };
-        assert_eq!(
-            sensor_memory.get_naive_state(Duration::from_secs(0)),
-            SensorMemoryNaiveState::Present
-        );
-    }
-
-    #[test]
-    fn test_get_naive_state_2() {
-        let instant = Instant::now() - Duration::from_secs(62);
-        let sensor_memory = SensorMemory {
-            delay: Duration::from_secs(60),
-            state: SensorMemoryState::AbsentSince(instant),
-        };
-        let naive_state = sensor_memory.get_naive_state(Duration::from_secs(0));
-        assert_ne!(naive_state, SensorMemoryNaiveState::Present,);
-        assert_ne!(naive_state, SensorMemoryNaiveState::Uninitialized,);
-        match naive_state {
-            SensorMemoryNaiveState::AbsentSince(duration) => {
-                assert!(duration < Duration::from_secs(3));
-                assert!(duration > Duration::from_secs(2));
-            }
-            _ => panic!("never gonna happen"),
-        }
-    }
-}
-
-pub struct SwitchMemory {
-    pub topic: String,
-    pub state: SwitchState,
-    pub rooms: Vec<String>,
-    pub delay: Duration,
 }
 
 #[cfg(test)]
