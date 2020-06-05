@@ -1,12 +1,11 @@
+mod sensor_states;
+
 use crate::configuration::{Configuration, SensorState, SwitchState};
-use crate::strategy::SensorMemoryState::{AbsentSince, Present, Uninitialized};
+use crate::strategy::sensor_states::{SensorMemoryNaiveState, SensorMemoryState};
 use crate::{SensorChangeContent, SwitchChangeContent};
-use serde::export::Formatter;
 use std::cmp::Ordering;
-use std::cmp::Ordering::Less;
 use std::collections::{BTreeSet, HashMap};
 use std::iter::FromIterator;
-use std::thread::current;
 use std::time::{Duration, Instant};
 
 type Topic = String;
@@ -14,8 +13,6 @@ type Room = String;
 type Sensors = HashMap<Topic, SensorMemory>;
 
 pub struct Strategy {
-    initialisation_time: Instant,
-
     /// all known sensors grouped room
     room_sensors: HashMap<Room, Sensors>,
 
@@ -37,9 +34,6 @@ pub struct Strategy {
     /// min possible delay of all sensors, to look in the future and
     /// determine the current_room
     look_ahead: Duration,
-
-    /// maximal delay of all sensors
-    max_delay: Duration,
 
     /// threshold for current room determination.
     /// If a new room is shorter absent than the current room
@@ -82,7 +76,7 @@ impl Strategy {
                 delay: Duration::from_secs(switch.delay),
             });
         }
-        let mut look_ahead = configuration.get_min_sensor_delay();
+        let look_ahead = configuration.get_min_sensor_delay();
         if look_ahead < 10 {
             warn!("warning: you have configured a sensor delay below 10 seconds, this can cause wrong location calculation");
         }
@@ -106,7 +100,6 @@ impl Strategy {
             .unwrap_or((255, vec![], true));
 
         Strategy {
-            initialisation_time: Instant::now(),
             room_sensors,
             room_switches,
             look_ahead: Duration::from_secs(look_ahead),
@@ -116,7 +109,6 @@ impl Strategy {
             brightness,
             current_room_threshold: Duration::from_secs(current_room_threshold),
             room_tracking_enabled,
-            max_delay: Duration::from_secs(configuration.get_max_sensor_delay()),
         }
     }
 
@@ -125,8 +117,8 @@ impl Strategy {
         info!("takeover: all uninitialized sensors set to absent and all uninitialized switches will be turned off");
         for sensor in self.room_sensors.values_mut() {
             for sensor_state in sensor.values_mut() {
-                if sensor_state.state == Uninitialized {
-                    sensor_state.state = AbsentSince(instant.clone());
+                if sensor_state.state == SensorMemoryState::Uninitialized {
+                    sensor_state.state = SensorMemoryState::AbsentSince(instant.clone());
                 }
             }
         }
@@ -421,34 +413,9 @@ pub struct RoomState {
 impl Ord for RoomState {
     /// If duration is not set, it means it is present
     fn cmp(&self, other: &Self) -> Ordering {
-        match (&self.state, &other.state) {
-            (SensorMemoryNaiveState::Present, SensorMemoryNaiveState::Present) => {
-                self.room.cmp(&other.room)
-            }
-            (SensorMemoryNaiveState::AbsentSince(_), SensorMemoryNaiveState::Present) => {
-                Ordering::Greater
-            }
-            (SensorMemoryNaiveState::Present, SensorMemoryNaiveState::AbsentSince(_)) => {
-                Ordering::Less
-            }
-            (SensorMemoryNaiveState::AbsentSince(me), SensorMemoryNaiveState::AbsentSince(it)) => {
-                me.cmp(&it)
-            }
-            (SensorMemoryNaiveState::Uninitialized, SensorMemoryNaiveState::Uninitialized) => {
-                Ordering::Equal
-            }
-            (SensorMemoryNaiveState::Uninitialized, SensorMemoryNaiveState::Present) => {
-                Ordering::Greater
-            }
-            (SensorMemoryNaiveState::Uninitialized, SensorMemoryNaiveState::AbsentSince(_)) => {
-                Ordering::Greater
-            }
-            (SensorMemoryNaiveState::Present, SensorMemoryNaiveState::Uninitialized) => {
-                Ordering::Less
-            }
-            (SensorMemoryNaiveState::AbsentSince(_), SensorMemoryNaiveState::Uninitialized) => {
-                Ordering::Less
-            }
+        match &self.state.cmp(&other.state) {
+            Ordering::Equal => self.room.cmp(&other.room),
+            otherwise => otherwise.clone(),
         }
     }
 }
@@ -465,7 +432,7 @@ impl PartialEq for RoomState {
 impl Eq for RoomState {}
 
 #[cfg(test)]
-mod test_RoomAbsents {
+mod test_room_absents {
     use super::*;
 
     use std::collections::BTreeSet;
@@ -558,7 +525,7 @@ mod tests_sensor_memory {
         let instant = Instant::now() - Duration::from_secs(30);
         let sensor_memory = SensorMemory {
             delay: Duration::from_secs(60),
-            state: AbsentSince(instant),
+            state: SensorMemoryState::AbsentSince(instant),
         };
         assert_eq!(
             sensor_memory.get_naive_state(Duration::from_secs(0)),
@@ -586,48 +553,6 @@ mod tests_sensor_memory {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub enum SensorMemoryNaiveState {
-    /// Absent since program start
-    Uninitialized,
-    /// Present
-    Present,
-    /// was Present once but is now Absent since
-    AbsentSince(Duration),
-}
-
-impl std::fmt::Display for SensorMemoryNaiveState {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SensorMemoryNaiveState::Uninitialized => write!(f, "Uninitialized"),
-            SensorMemoryNaiveState::Present => write!(f, "Present"),
-            SensorMemoryNaiveState::AbsentSince(since) => {
-                write!(f, "AbsentSince({}s)", since.as_secs())
-            }
-        }
-    }
-}
-
-#[derive(PartialEq, Debug, Clone)]
-pub enum SensorMemoryState {
-    /// Absent since program start
-    Uninitialized,
-    /// Present
-    Present,
-    /// was Present once but is now Absent since
-    AbsentSince(Instant),
-}
-
-impl std::fmt::Display for SensorMemoryState {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Uninitialized => write!(f, "Uninitialized"),
-            Present => write!(f, "Present"),
-            AbsentSince(since) => write!(f, "AbsentSince({}s)", since.elapsed().as_secs()),
-        }
-    }
-}
-
 pub struct SwitchMemory {
     pub topic: String,
     pub state: SwitchState,
@@ -640,6 +565,7 @@ mod tests {
     use super::*;
     use crate::configuration::{Credentials, Sensor};
     use crate::dummy_configuration::create_light_switch;
+    use crate::UpdateMessage::SensorChange;
     use std::thread;
     use std::time::Duration;
 
@@ -715,7 +641,7 @@ mod tests {
         let motion_1_sensor = motion_1_sensor.unwrap();
 
         let instant = instant_from_the_past(60);
-        motion_1_sensor.state = AbsentSince(instant);
+        motion_1_sensor.state = SensorMemoryState::AbsentSince(instant);
         let map = strategy.get_room_state(Duration::from_secs(0));
         match map.get("room1").unwrap() {
             SensorMemoryNaiveState::AbsentSince(duration) => {
@@ -738,7 +664,7 @@ mod tests {
         let motion_1_sensor = motion_1_sensor.unwrap();
 
         let instant = instant_from_the_past(2);
-        motion_1_sensor.state = AbsentSince(instant);
+        motion_1_sensor.state = SensorMemoryState::AbsentSince(instant);
         let map = strategy.get_room_state(Duration::from_secs(0));
         assert_eq!(&SensorMemoryNaiveState::Present, map.get("room1").unwrap());
     }

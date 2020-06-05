@@ -1,14 +1,12 @@
 extern crate mustache;
 
 use self::mustache::MapBuilder;
-use serde::private::ser::serialize_tagged_newtype;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
-use std::panic::resume_unwind;
 
 /// Room setup
 #[derive(Clone, Deserialize, Serialize)]

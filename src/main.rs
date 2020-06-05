@@ -11,7 +11,6 @@ mod replay;
 mod strategy;
 
 use crate::configuration::{Configuration, SensorState, SwitchState};
-use crate::dummy_configuration::hardcoded_config;
 use crate::mqtt::MqttClient;
 use crate::replay::Replay;
 use crate::strategy::{Strategy, SwitchCommand};
@@ -77,7 +76,7 @@ fn main() {
     // spawn replay thread
     let (replay_sender, replay_receiver): (Sender<ReplayMessage>, Receiver<ReplayMessage>) =
         mpsc::channel();
-    let mut is_replay_enabled = replay.is_some();
+    let is_replay_enabled = replay.is_some();
     if replay.is_some() {
         let mut replay_tracker = replay.unwrap();
         thread::spawn(move || {

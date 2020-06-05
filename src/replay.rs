@@ -19,7 +19,7 @@ impl Replay {
         configuration_output: &PathBuf,
         configuration: &Configuration,
     ) -> Result<Self, Box<dyn Error>> {
-        let mut configuration_file = File::create(configuration_output)?;
+        let configuration_file = File::create(configuration_output)?;
         serde_json::to_writer_pretty(configuration_file, configuration).unwrap();
         let mut file = File::create(replay_script_output)?;
         write!(file, "#!/usr/bin/env bash\n");

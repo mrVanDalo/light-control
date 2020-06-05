@@ -1,5 +1,6 @@
 use crate::configuration::{Configuration, Credentials, Scene, Sensor, Switch, SwitchCommand};
 
+#[allow(dead_code)]
 pub fn hardcoded_config() -> Configuration {
     let sensors = vec![
         create_motion_sensor("zigbee2mqtt/motion_sensor_2", vec!["bed_room".to_string()]),
@@ -66,6 +67,7 @@ pub fn hardcoded_config() -> Configuration {
     }
 }
 
+#[allow(dead_code)]
 pub fn create_motion_sensor(topic: &str, rooms: Vec<String>) -> Sensor {
     Sensor {
         topic: topic.to_string(),
@@ -76,6 +78,7 @@ pub fn create_motion_sensor(topic: &str, rooms: Vec<String>) -> Sensor {
     }
 }
 
+#[allow(dead_code)]
 pub fn create_door_sensor(topic: &str, rooms: Vec<String>) -> Sensor {
     Sensor {
         topic: topic.to_string(),
@@ -86,6 +89,7 @@ pub fn create_door_sensor(topic: &str, rooms: Vec<String>) -> Sensor {
     }
 }
 
+#[allow(dead_code)]
 pub fn create_light_switch(name: &str, rooms: Vec<String>) -> Switch {
     Switch {
         topic: format!("zigbee2mqtt/{}", name),
@@ -103,6 +107,7 @@ pub fn create_light_switch(name: &str, rooms: Vec<String>) -> Switch {
     }
 }
 
+#[allow(dead_code)]
 pub fn create_sonoff_switch(name: &str, rooms: Vec<String>) -> Switch {
     Switch {
         topic: format!("stat/{}/RESULT", name),
