@@ -256,27 +256,7 @@ impl Strategy {
     /// and create command to correct that
     pub fn trigger_commands(&mut self) -> Vec<SwitchCommand> {
         let new_room_states = self.get_room_state(Duration::from_secs(0));
-        let current_room_states = &self.room_state;
-
-        // print room information
-        for (room, new_state) in new_room_states.iter() {
-            let old_state = current_room_states.get(room);
-            if old_state.is_none() {
-                continue;
-            }
-            let old_state = old_state.unwrap();
-            match (old_state, new_state) {
-                (SensorMemoryNaiveState::Uninitialized, SensorMemoryNaiveState::Uninitialized) => {}
-                (SensorMemoryNaiveState::Present, SensorMemoryNaiveState::Present) => {}
-                (
-                    SensorMemoryNaiveState::AbsentSince(_),
-                    SensorMemoryNaiveState::AbsentSince(_),
-                ) => {}
-                _ => {
-                    trace!("realized {} changed {} -> {}", room, old_state, new_state,);
-                }
-            }
-        }
+        Strategy::print_room_update_information(&new_room_states, &self.room_state);
         self.room_state = new_room_states;
 
         // update commands
@@ -333,6 +313,30 @@ impl Strategy {
             }
         }
         commands
+    }
+
+    fn print_room_update_information(
+        new_room_states: &HashMap<String, SensorMemoryNaiveState>,
+        current_room_states: &HashMap<String, SensorMemoryNaiveState>,
+    ) {
+        for (room, new_state) in new_room_states.iter() {
+            let old_state = current_room_states.get(room);
+            if old_state.is_none() {
+                continue;
+            }
+            let old_state = old_state.unwrap();
+            match (old_state, new_state) {
+                (SensorMemoryNaiveState::Uninitialized, SensorMemoryNaiveState::Uninitialized) => {}
+                (SensorMemoryNaiveState::Present, SensorMemoryNaiveState::Present) => {}
+                (
+                    SensorMemoryNaiveState::AbsentSince(_),
+                    SensorMemoryNaiveState::AbsentSince(_),
+                ) => {}
+                _ => {
+                    trace!("realized {} changed {} -> {}", room, old_state, new_state,);
+                }
+            }
+        }
     }
 
     pub fn set_brightness(&mut self, brightness: u8) {
@@ -538,7 +542,7 @@ mod tests_sensor_memory {
         let instant = Instant::now() - Duration::from_secs(62);
         let sensor_memory = SensorMemory {
             delay: Duration::from_secs(60),
-            state: AbsentSince(instant),
+            state: SensorMemoryState::AbsentSince(instant),
         };
         let naive_state = sensor_memory.get_naive_state(Duration::from_secs(0));
         assert_ne!(naive_state, SensorMemoryNaiveState::Present,);
@@ -565,7 +569,6 @@ mod tests {
     use super::*;
     use crate::configuration::{Credentials, Sensor};
     use crate::dummy_configuration::create_light_switch;
-    use crate::UpdateMessage::SensorChange;
     use std::thread;
     use std::time::Duration;
 
@@ -686,7 +689,7 @@ mod tests {
         let motion_1_sensor = motion_1_sensor.unwrap();
 
         let instant = instant_from_the_past(2);
-        motion_1_sensor.state = AbsentSince(instant);
+        motion_1_sensor.state = SensorMemoryState::AbsentSince(instant);
         let map = strategy.get_room_state(Duration::from_secs(0));
         assert_eq!(&SensorMemoryNaiveState::Present, map.get("room1").unwrap());
     }
@@ -703,7 +706,7 @@ mod tests {
         let motion_1_sensor = motion_1_sensor.unwrap();
 
         let instant = instant_from_the_past(12);
-        motion_1_sensor.state = Present;
+        motion_1_sensor.state = SensorMemoryState::Present;
         let map = strategy.get_room_state(Duration::from_secs(0));
         assert_eq!(&SensorMemoryNaiveState::Present, map.get("room1").unwrap());
     }

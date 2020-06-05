@@ -235,6 +235,7 @@ fn main() {
                 strategy.set_brightness(brightness);
                 strategy.set_room_tracking_enabled(room_tracking_enabled);
                 strategy.set_disabled_switches(exclude_switches);
+                strategy.trigger_commands();
             }
         };
         strategy.calculate_current_room();
