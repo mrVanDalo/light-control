@@ -237,7 +237,7 @@ fn main() {
                 strategy.set_brightness(brightness);
                 strategy.set_room_tracking_enabled(room_tracking_enabled);
                 strategy.set_disabled_switches(exclude_switches);
-                for switch_command in strategy.trigger_commands(false) {
+                for switch_command in strategy.trigger_commands(true) {
                     publish_sender.send(switch_command);
                 }
                 continue;

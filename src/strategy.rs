@@ -7,7 +7,6 @@ use crate::strategy::room_state::RoomState;
 use crate::strategy::sensor_memory::SensorMemory;
 use crate::strategy::sensor_states::{SensorMemoryNaiveState, SensorMemoryState};
 use crate::{SensorChangeContent, SwitchChangeContent};
-use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashMap};
 use std::iter::FromIterator;
 use std::time::{Duration, Instant};
@@ -66,23 +65,21 @@ impl Strategy {
     pub fn new(configuration: &Configuration) -> Self {
         let mut room_sensors = HashMap::new();
         for sensor in configuration.sensors.iter() {
-            for room in sensor.rooms.iter() {
-                if !room_sensors.contains_key(room) {
-                    room_sensors.insert(room.clone(), HashMap::new());
-                }
-                let sensors_memory = room_sensors.get_mut(room).unwrap();
-                sensors_memory.insert(
-                    sensor.topic.clone(),
-                    SensorMemory {
-                        delay: Duration::from_secs(sensor.delay),
-                        state: SensorMemoryState::Uninitialized,
-                    },
-                );
-                info!(
-                    "{} contains {} with delay: {}s",
-                    room, sensor.topic, sensor.delay
-                );
+            if !room_sensors.contains_key(&sensor.room) {
+                room_sensors.insert(sensor.room.clone(), HashMap::new());
             }
+            let sensors_memory = room_sensors.get_mut(&sensor.room).unwrap();
+            sensors_memory.insert(
+                sensor.topic.clone(),
+                SensorMemory {
+                    delay: Duration::from_secs(sensor.delay),
+                    state: SensorMemoryState::Uninitialized,
+                },
+            );
+            info!(
+                "{} contains {} with delay: {}s",
+                sensor.room, sensor.topic, sensor.delay
+            );
         }
         let mut room_switches = Vec::new();
         for switch in configuration.switches.iter() {
@@ -453,13 +450,13 @@ mod tests {
         assert!(instant.elapsed() - Duration::from_secs(10) < Duration::from_secs(11));
     }
 
-    fn create_sensor(topic: &str, rooms: Vec<String>, delay: u64) -> Sensor {
+    fn create_sensor(topic: &str, rooms: String, delay: u64) -> Sensor {
         Sensor {
             topic: topic.to_string(),
             key: "occupancy".to_string(),
             invert_state: false,
             delay,
-            rooms,
+            room: rooms,
         }
     }
 
@@ -479,8 +476,8 @@ mod tests {
             },
             scenes: vec![],
             sensors: vec![
-                create_sensor("motion1", vec!["room1".to_string()], 10),
-                create_sensor("motion2", vec!["room1".to_string()], 10),
+                create_sensor("motion1", "room1".to_string(), 10),
+                create_sensor("motion2", "room1".to_string(), 10),
             ],
             switches: vec![create_light_switch("light1", vec!["room1".to_string()])],
         };
