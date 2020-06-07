@@ -1,12 +1,18 @@
 {
   "credentials": {
-    "host": "tcp://pepe.lan:1883",
-    "user": "homeassistant",
-    "password": "hallo"
+    "host": "tcp://my-light-server:1883",
+    "user": "light-control",
+    "password": "password"
   },
   "scenes": [
     {
       "name": "default",
+      "brightness": "255",
+      "room_tracking_enabled": true
+    },
+    {
+      "name": "night",
+      "brightness": "25",
       "room_tracking_enabled": false
     }
   ],
@@ -32,20 +38,6 @@
         "command": "{\"state\":\"{{state}}\",\"brightness\":{{brightness}}}",
         "init_command": null,
         "topic": "zigbee2mqtt/light_8/set",
-        "on": "ON",
-        "off": "OFF"
-      }
-    },
-    {
-      "topic": "stat/PAL01/RESULT",
-      "key": "POWER",
-      "rooms": [
-        "bed_room"
-      ],
-      "command": {
-        "command": "{{state}}",
-        "init_command": "(null)",
-        "topic": "cmnd/PAL01/POWER",
         "on": "ON",
         "off": "OFF"
       }
