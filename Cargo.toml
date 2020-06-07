@@ -12,10 +12,10 @@ keywords = ["mqtt", "light-control", "iot"]
 exclude = [ "shell.nix", "images", ".gitignore" ]
 
 [dependencies]
-log = "0.4.8"
-env_logger = "0.7.1"
+log = "0.4"
+env_logger = "0.7"
 futures = "0.1"
-mustache = "*"
+mustache = "0.9"
 serde_json = "1.0"
 structopt = "0.3"
 
