@@ -141,12 +141,9 @@ pub struct Sensor {
     pub topic: String,
     /// json key to read the state
     pub key: String,
-    // todo : make this only one string, having multiple rooms fucks with the room detection
-    // todo : instead create a parameter, which triggers also other rooms but without detection for theses rooms
     /// rooms that should be considered present when
     /// when this sensor is triggered
-    #[serde(default)]
-    pub rooms: Vec<String>,
+    pub room: String,
     /// sometimes sensors send false if presents
     /// this options negates presences.
     #[serde(default = "Sensor::default_invert_state")]

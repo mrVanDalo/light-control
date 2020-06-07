@@ -34,7 +34,6 @@ mod test_room_absents {
 
     use std::collections::BTreeSet;
     use std::iter::FromIterator;
-    use std::ops::Bound::Included;
     use std::time::Duration;
 
     #[test]
