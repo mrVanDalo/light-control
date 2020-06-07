@@ -2,7 +2,7 @@
 
 [Mqtt](http://mosquitto.org/man/mqtt-7.html)
 light-control for [singles](https://en.wikipedia.org/wiki/Single_person).
-It comes with with room tracking, which works best if one person lives alone.
+It comes with room tracking, which works best in a single person environment.
 
 ## How to install
 
