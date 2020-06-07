@@ -2,6 +2,7 @@ use serde::export::Formatter;
 use std::cmp::Ordering;
 use std::time::{Duration, Instant};
 
+// todo: rename it
 #[derive(PartialEq, Debug, Clone)]
 pub enum SensorMemoryNaiveState {
     /// Absent since program start
@@ -83,6 +84,7 @@ mod tests {
     }
 }
 
+// todo: rename it
 #[derive(PartialEq, Debug, Clone)]
 pub enum SensorMemoryState {
     /// Absent since program start

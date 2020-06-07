@@ -1,6 +1,7 @@
 use crate::strategy::sensor_states::SensorMemoryNaiveState;
 use std::cmp::Ordering;
 
+// todo : get rid of this structure or use it instead of the HashMap in ./strategy.rs
 /// Sorting structure for room state
 #[derive(Debug)]
 pub struct RoomState {

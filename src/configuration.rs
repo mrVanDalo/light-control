@@ -181,6 +181,7 @@ impl SensorState {
         }
     }
 
+    // todo : implement TryFrom<Value> instead of this function
     pub fn json_value_to_sensor_state(value: &Value) -> Option<SensorState> {
         use SensorState::{Absent, Present};
         match value {
@@ -262,6 +263,7 @@ pub enum SwitchState {
 }
 
 impl SwitchState {
+    // todo : implement TryFrom<Value> instead of this function
     pub fn json_value_to_switch_state(value: &Value) -> Option<SwitchState> {
         use SwitchState::{Off, On};
         match value {
@@ -501,12 +503,14 @@ mod test_scene {
     }
 }
 
+// todo : create proper Errors and use them everywhere
 #[derive(Debug)]
 struct ConfigurationError {}
 
 impl Error for ConfigurationError {}
 impl std::fmt::Display for ConfigurationError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        // todo : write proper error message
         write!(f, "not Implemented yet")
     }
 }

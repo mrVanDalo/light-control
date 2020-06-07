@@ -1,6 +1,7 @@
 use crate::strategy::sensor_states::{SensorMemoryNaiveState, SensorMemoryState};
 use std::time::Duration;
 
+// todo: rename it
 pub struct SensorMemory {
     pub delay: Duration,
     pub state: SensorMemoryState,
