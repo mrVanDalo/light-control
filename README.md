@@ -98,11 +98,11 @@ zigbee2mqtt/motion_sensor_7 {"battery":100,"voltage":3015,"linkquality":99,"occu
 
 * `name`: name of the scene
 * `brightness`: brightness level for this scene
-* `disable_switches`:
+* `disabled_switches`:
     list all switch topics which should be turned off.
-* `enable_switches`:
+* `enabled_switches`:
     list all switch topics which should be turned on.
-* `ignore_switches`:
+* `ignored_switches`:
     list all switch topics which should not be set.
 * `room_tracking_enabled`: tracking enabled or not
 

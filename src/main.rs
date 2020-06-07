@@ -64,6 +64,11 @@ fn main() {
     // get configuration
     let configuration = Configuration::load_from_file(&opt.config.to_str().unwrap())
         .expect("couldn't parse configuration");
+    for scene in configuration.scenes.iter() {
+        scene
+            .verify()
+            .expect("couldn't verify scene, see log for more information");
+    }
 
     let mut replay = None;
     match (opt.replay_config, opt.replay_script) {
@@ -149,11 +154,13 @@ fn main() {
                                 .flatten()
                                 .map(|(name, scene)| {
                                     info!("change scene to {}", name);
-                                    change_sender.send(UpdateMessage::SceneChange(
-                                        scene.exclude_switches.clone(),
-                                        scene.brightness,
-                                        scene.room_tracking_enabled,
-                                    ))
+                                    change_sender.send(UpdateMessage::SceneChange {
+                                        disabled_switches: scene.disabled_switches.clone(),
+                                        enabled_switches: scene.enabled_switches.clone(),
+                                        ignored_switches: scene.ignored_switches.clone(),
+                                        brightness: scene.brightness,
+                                        enable_room_tracking: scene.room_tracking_enabled,
+                                    })
                                 });
                         }
                     }
@@ -233,10 +240,18 @@ fn main() {
             UpdateMessage::SensorChange(instant, sensor_content) => {
                 strategy.update_sensor(instant, sensor_content);
             }
-            UpdateMessage::SceneChange(exclude_switches, brightness, room_tracking_enabled) => {
+            UpdateMessage::SceneChange {
+                disabled_switches,
+                enabled_switches,
+                ignored_switches,
+                brightness,
+                enable_room_tracking,
+            } => {
                 strategy.set_brightness(brightness);
-                strategy.set_room_tracking_enabled(room_tracking_enabled);
-                strategy.set_disabled_switches(exclude_switches);
+                strategy.set_room_tracking_enabled(enable_room_tracking);
+                strategy.set_disabled_switches(disabled_switches);
+                strategy.set_enabled_switches(enabled_switches);
+                strategy.set_ignored_switches(ignored_switches);
                 for switch_command in strategy.trigger_commands(true) {
                     publish_sender.send(switch_command);
                 }
@@ -264,8 +279,13 @@ pub enum UpdateMessage {
     /// Send a Scene change
     /// * names of excluded topics
     /// * brightness
-    /// todo: use named arguments here
-    SceneChange(Vec<String>, u8, bool),
+    SceneChange {
+        disabled_switches: Vec<String>,
+        enabled_switches: Vec<String>,
+        ignored_switches: Vec<String>,
+        brightness: u8,
+        enable_room_tracking: bool,
+    },
     /// Send a State change
     SwitchChange(Instant, SwitchChangeContent),
     /// Send a State change

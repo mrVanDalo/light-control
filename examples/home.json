@@ -7,22 +7,23 @@
   "scenes": [
     {
       "name": "default",
-      "brightness": "255",
+      "brightness": 255,
       "room_tracking_enabled": true
     },
     {
       "name": "night",
-      "brightness": "25",
-      "room_tracking_enabled": false
+      "brightness": 25,
+      "room_tracking_enabled": false,
+      "disabled_switches": [
+        "stat/PAL04/RESULT"
+      ]
     }
   ],
   "sensors": [
     {
       "topic": "zigbee2mqtt/motion_sensor_2",
       "key": "occupancy",
-      "rooms": [
-        "bed_room"
-      ],
+      "room": "bed_room",
       "invert_state": false,
       "delay": 60
     }

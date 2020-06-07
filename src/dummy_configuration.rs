@@ -31,13 +31,17 @@ pub fn hardcoded_config() -> Configuration {
             room_tracking_enabled: true,
             name: "default".to_string(),
             brightness: 255,
-            exclude_switches: vec![],
+            enabled_switches: vec![],
+            ignored_switches: vec![],
+            disabled_switches: vec![],
         },
         Scene {
             room_tracking_enabled: false,
             name: "night".to_string(),
             brightness: 25,
-            exclude_switches: vec![
+            enabled_switches: vec![],
+            ignored_switches: vec![],
+            disabled_switches: vec![
                 "stat/PAL01/RESULT".to_string(),
                 "stat/PAL03/RESULT".to_string(),
                 "stat/PAL04/RESULT".to_string(),
