@@ -1,13 +1,13 @@
 extern crate mustache;
 
 use self::mustache::MapBuilder;
+use serde::export::Formatter;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
-use std::time::Duration;
 
 /// Room setup
 #[derive(Clone, Deserialize, Serialize)]
@@ -27,6 +27,26 @@ pub struct Credentials {
 }
 
 impl Configuration {
+    pub fn get_max_sensor_delay(&self) -> u64 {
+        let mut result = 0;
+        for sensor in self.sensors.iter() {
+            if result < sensor.delay {
+                result = sensor.delay;
+            }
+        }
+        result
+    }
+
+    pub fn get_min_sensor_delay(&self) -> u64 {
+        let mut result = self.get_max_sensor_delay();
+        for sensor in self.sensors.iter() {
+            if result > sensor.delay {
+                result = sensor.delay;
+            }
+        }
+        result
+    }
+
     pub fn load_from_file(path: &str) -> Result<Self, Box<dyn Error>> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
@@ -124,14 +144,14 @@ pub struct Sensor {
     pub key: String,
     /// rooms that should be considered present when
     /// when this sensor is triggered
-    #[serde(default)]
-    pub rooms: Vec<String>,
+    pub room: String,
     /// sometimes sensors send false if presents
     /// this options negates presences.
     #[serde(default = "Sensor::default_invert_state")]
     pub invert_state: bool,
-    /// delay to wait from present to absent,
-    /// when the absent signals appears.
+    /// how long to wait, in seconds, till
+    /// a present state becames absent after the devices publishes
+    /// the absent message.
     #[serde(default = "Sensor::default_delay")]
     pub delay: u64,
 }
@@ -161,6 +181,7 @@ impl SensorState {
         }
     }
 
+    // todo : implement TryFrom<Value> instead of this function
     pub fn json_value_to_sensor_state(value: &Value) -> Option<SensorState> {
         use SensorState::{Absent, Present};
         match value {
@@ -196,9 +217,16 @@ pub struct Switch {
     pub rooms: Vec<String>,
     /// command control
     pub command: SwitchCommand,
+    /// how long to wait, in seconds, till the switch is turned off
+    /// once it's room becomes the absent state.
+    #[serde(default = "Switch::default_delay")]
+    pub delay: u64,
 }
 
 impl Switch {
+    pub fn default_delay() -> u64 {
+        0
+    }
     pub fn get_topic_and_command(&self, state: SwitchState, brightness: u8) -> (&String, String) {
         self.command.get_topic_and_command(state, brightness)
     }
@@ -235,6 +263,7 @@ pub enum SwitchState {
 }
 
 impl SwitchState {
+    // todo : implement TryFrom<Value> instead of this function
     pub fn json_value_to_switch_state(value: &Value) -> Option<SwitchState> {
         use SwitchState::{Off, On};
         match value {
@@ -288,8 +317,6 @@ impl SwitchCommand {
 mod switch_tests {
     use super::*;
 
-    // todo write parse topic tests
-
     #[test]
     fn test_get_topic_and_command() {
         let switch_command = SwitchCommand {
@@ -335,7 +362,11 @@ pub struct Scene {
     /// list all switch topics which should not turned on anymore.
     /// they will be turned off by entering this scene
     #[serde(default)]
-    pub exclude_switches: Vec<String>,
+    pub disabled_switches: Vec<String>,
+    #[serde(default)]
+    pub enabled_switches: Vec<String>,
+    #[serde(default)]
+    pub ignored_switches: Vec<String>,
     /// tracking enabled or not
     #[serde(default = "Scene::default_room_tracking_enabled")]
     pub room_tracking_enabled: bool,
@@ -347,5 +378,139 @@ impl Scene {
     }
     pub fn default_room_tracking_enabled() -> bool {
         true
+    }
+
+    /// verify if scene is consistent
+    pub fn verify(&self) -> Result<(), Box<dyn Error>> {
+        for disabled_switch in self.disabled_switches.iter() {
+            if self.enabled_switches.contains(&disabled_switch) {
+                error!(
+                    "{}, defined as disabled_switch and enabled_switch in {}",
+                    disabled_switch, self.name
+                );
+                return Err(Box::new(ConfigurationError {}));
+            }
+            if self.ignored_switches.contains(&disabled_switch) {
+                error!(
+                    "{}, defined as disabled_switch and ignored_switch in {}",
+                    disabled_switch, self.name
+                );
+                return Err(Box::new(ConfigurationError {}));
+            }
+        }
+        for ignored_switch in self.ignored_switches.iter() {
+            if self.disabled_switches.contains(&ignored_switch) {
+                error!(
+                    "{}, defined as ignored_switch and disabled_switch in {}",
+                    ignored_switch, self.name
+                );
+                return Err(Box::new(ConfigurationError {}));
+            }
+            if self.enabled_switches.contains(&ignored_switch) {
+                error!(
+                    "{}, defined as ignored_switch and enabled_switch in {}",
+                    ignored_switch, self.name
+                );
+                return Err(Box::new(ConfigurationError {}));
+            }
+        }
+        for enabled_switch in self.enabled_switches.iter() {
+            if self.disabled_switches.contains(&enabled_switch) {
+                error!(
+                    "{}, defined as enabled_switch and disabled_switch in {}",
+                    enabled_switch, self.name
+                );
+                return Err(Box::new(ConfigurationError {}));
+            }
+            if self.ignored_switches.contains(&enabled_switch) {
+                error!(
+                    "{}, defined as enabled_switch and ignored_switch in {}",
+                    enabled_switch, self.name
+                );
+                return Err(Box::new(ConfigurationError {}));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test_scene {
+    use super::*;
+
+    #[test]
+    fn test_verify1() {
+        let scene = Scene {
+            name: "".to_string(),
+            brightness: 0,
+            disabled_switches: vec!["test1".to_string()],
+            enabled_switches: vec!["test2".to_string()],
+            ignored_switches: vec!["test3".to_string()],
+            room_tracking_enabled: false,
+        };
+        match scene.verify() {
+            Err(_) => panic!("verification failed but it shouldn't"),
+            Ok(_) => {}
+        }
+    }
+
+    #[test]
+    fn test_verify2() {
+        let scene = Scene {
+            name: "".to_string(),
+            brightness: 0,
+            disabled_switches: vec!["test1".to_string()],
+            enabled_switches: vec!["test1".to_string()],
+            ignored_switches: vec!["test3".to_string()],
+            room_tracking_enabled: false,
+        };
+        match scene.verify() {
+            Ok(_) => panic!("verification successful but it shouldn't"),
+            Err(_) => {}
+        }
+    }
+
+    #[test]
+    fn test_verify3() {
+        let scene = Scene {
+            name: "".to_string(),
+            brightness: 0,
+            disabled_switches: vec!["test1".to_string()],
+            enabled_switches: vec!["test2".to_string()],
+            ignored_switches: vec!["test2".to_string()],
+            room_tracking_enabled: false,
+        };
+        match scene.verify() {
+            Ok(_) => panic!("verification successful but it shouldn't"),
+            Err(_) => {}
+        }
+    }
+
+    #[test]
+    fn test_verify4() {
+        let scene = Scene {
+            name: "".to_string(),
+            brightness: 0,
+            disabled_switches: vec!["test1".to_string()],
+            enabled_switches: vec!["test2".to_string()],
+            ignored_switches: vec!["test1".to_string()],
+            room_tracking_enabled: false,
+        };
+        match scene.verify() {
+            Ok(_) => panic!("verification successful but it shouldn't"),
+            Err(_) => {}
+        }
+    }
+}
+
+// todo : create proper Errors and use them everywhere
+#[derive(Debug)]
+struct ConfigurationError {}
+
+impl Error for ConfigurationError {}
+impl std::fmt::Display for ConfigurationError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        // todo : write proper error message
+        write!(f, "not Implemented yet")
     }
 }

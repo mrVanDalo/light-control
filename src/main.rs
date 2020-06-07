@@ -11,7 +11,6 @@ mod replay;
 mod strategy;
 
 use crate::configuration::{Configuration, SensorState, SwitchState};
-use crate::dummy_configuration::hardcoded_config;
 use crate::mqtt::MqttClient;
 use crate::replay::Replay;
 use crate::strategy::{Strategy, SwitchCommand};
@@ -40,23 +39,19 @@ struct Opt {
     /// Input file (in json)
     #[structopt(name = "config.json", parse(from_os_str))]
     config: PathBuf,
-
     /// replay script output path
     #[structopt(long, parse(from_os_str))]
     replay_script: Option<PathBuf>,
-
     /// replay configuration output path
     #[structopt(long, parse(from_os_str))]
     replay_config: Option<PathBuf>,
 }
 
 fn main() {
-
     // //only for development
-    let configuration = hardcoded_config();
-    println!("config: {}", serde_json::to_string(&configuration).unwrap() );
-    std::process::exit(1);
-
+    //let configuration = hardcoded_config();
+    //println!("config: {}", serde_json::to_string(&configuration).unwrap() );
+    //std::process::exit(1);
 
     env_logger::init();
     // parse options
@@ -69,6 +64,11 @@ fn main() {
     // get configuration
     let configuration = Configuration::load_from_file(&opt.config.to_str().unwrap())
         .expect("couldn't parse configuration");
+    for scene in configuration.scenes.iter() {
+        scene
+            .verify()
+            .expect("couldn't verify scene, see log for more information");
+    }
 
     let mut replay = None;
     match (opt.replay_config, opt.replay_script) {
@@ -81,7 +81,7 @@ fn main() {
     // spawn replay thread
     let (replay_sender, replay_receiver): (Sender<ReplayMessage>, Receiver<ReplayMessage>) =
         mpsc::channel();
-    let mut is_replay_enabled = replay.is_some();
+    let is_replay_enabled = replay.is_some();
     if replay.is_some() {
         let mut replay_tracker = replay.unwrap();
         thread::spawn(move || {
@@ -154,11 +154,13 @@ fn main() {
                                 .flatten()
                                 .map(|(name, scene)| {
                                     info!("change scene to {}", name);
-                                    change_sender.send(UpdateMessage::SceneChange(
-                                        scene.exclude_switches.clone(),
-                                        scene.brightness,
-                                        scene.room_tracking_enabled,
-                                    ))
+                                    change_sender.send(UpdateMessage::SceneChange {
+                                        disabled_switches: scene.disabled_switches.clone(),
+                                        enabled_switches: scene.enabled_switches.clone(),
+                                        ignored_switches: scene.ignored_switches.clone(),
+                                        brightness: scene.brightness,
+                                        enable_room_tracking: scene.room_tracking_enabled,
+                                    })
                                 });
                         }
                     }
@@ -194,11 +196,13 @@ fn main() {
         ping_sender.send(UpdateMessage::Ping);
     });
 
-    // deinit after a while
+    // take over all devices after a while
     let deinit_sender = update_sender.clone();
+    let takeover_delay = configuration.get_max_sensor_delay() + 10;
+    info!("takeover delay : {}s", takeover_delay);
     thread::spawn(move || {
         let instant = Instant::now();
-        thread::sleep(Duration::from_secs(130)); // todo : instead of 130 it should be the maximum number of all delays
+        thread::sleep(Duration::from_secs(takeover_delay));
         deinit_sender.send(UpdateMessage::Deinit(instant));
     });
 
@@ -224,7 +228,9 @@ fn main() {
     // main loop
     for update_message in update_receiver.iter() {
         match update_message {
-            UpdateMessage::Ping => {}
+            UpdateMessage::Ping => {
+                strategy.calculate_current_room();
+            }
             UpdateMessage::Deinit(instant) => {
                 strategy.replace_uninitialized_with_absents(instant);
             }
@@ -234,14 +240,25 @@ fn main() {
             UpdateMessage::SensorChange(instant, sensor_content) => {
                 strategy.update_sensor(instant, sensor_content);
             }
-            UpdateMessage::SceneChange(exclude_switches, brightness, room_tracking_enabled) => {
+            UpdateMessage::SceneChange {
+                disabled_switches,
+                enabled_switches,
+                ignored_switches,
+                brightness,
+                enable_room_tracking,
+            } => {
                 strategy.set_brightness(brightness);
-                strategy.set_room_tracking_enabled(room_tracking_enabled);
-                strategy.set_disabled_switches(exclude_switches);
+                strategy.set_room_tracking_enabled(enable_room_tracking);
+                strategy.set_disabled_switches(disabled_switches);
+                strategy.set_enabled_switches(enabled_switches);
+                strategy.set_ignored_switches(ignored_switches);
+                for switch_command in strategy.trigger_commands(true) {
+                    publish_sender.send(switch_command);
+                }
+                continue;
             }
         };
-        strategy.calculate_current_room();
-        for switch_command in strategy.trigger_commands() {
+        for switch_command in strategy.trigger_commands(false) {
             publish_sender.send(switch_command);
         }
     }
@@ -262,8 +279,13 @@ pub enum UpdateMessage {
     /// Send a Scene change
     /// * names of excluded topics
     /// * brightness
-    /// todo: use named arguments here
-    SceneChange(Vec<String>, u8, bool),
+    SceneChange {
+        disabled_switches: Vec<String>,
+        enabled_switches: Vec<String>,
+        ignored_switches: Vec<String>,
+        brightness: u8,
+        enable_room_tracking: bool,
+    },
     /// Send a State change
     SwitchChange(Instant, SwitchChangeContent),
     /// Send a State change

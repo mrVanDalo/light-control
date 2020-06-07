@@ -1,23 +1,27 @@
 [package]
 name = "light-control"
-version = "1.0.0"
+version = "2.0.0"
 authors = ["Ingolf Wagner <contact@ingolf-wagner.de>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "mqtt light control"
+documentation = "https://github.com/mrVanDalo/light-control"
+readme = "README.md"
+homepage = "https://github.com/mrVanDalo/light-control"
+license-file = "LICENSE"
+keywords = ["mqtt", "light-control", "iot"]
+exclude = [ "shell.nix", "images", ".gitignore" ]
 
 [dependencies]
-log = "0.4.8"
-env_logger = "0.7.1"
+log = "0.4"
+env_logger = "0.7"
 futures = "0.1"
-mustache = "*"
+mustache = "0.9"
 serde_json = "1.0"
 structopt = "0.3"
 
 [dependencies.serde]
 version = "1.0"
 features = ["derive"]
-
 
 [dependencies.paho-mqtt]
 version = "0.6"
