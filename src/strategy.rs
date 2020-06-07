@@ -15,6 +15,7 @@ type Topic = String;
 type Room = String;
 type Sensors = HashMap<Topic, SensorMemory>;
 
+#[derive(Debug, PartialEq)]
 pub struct SwitchCommand {
     pub topic: String,
     pub state: SwitchState,
@@ -597,5 +598,65 @@ mod tests {
         motion_1_sensor.state = SensorMemoryState::Present;
         let map = strategy.get_room_state(Duration::from_secs(0));
         assert_eq!(&SensorMemoryNaiveState::Present, map.get("room1").unwrap());
+    }
+
+    #[test]
+    fn test_trigger_command1() {
+        let mut strategy = create_test_setup();
+        let commands = strategy.trigger_commands(false);
+        assert!(commands.is_empty());
+    }
+
+    #[test]
+    fn test_trigger_command2() {
+        let mut strategy = create_test_setup();
+        strategy.set_enabled_switches(vec!["zigbee2mqtt/light1".to_string()]);
+        let commands = strategy.trigger_commands(false);
+        assert!(!commands.is_empty());
+        assert_eq!(
+            commands.get(0).unwrap(),
+            &SwitchCommand {
+                topic: "zigbee2mqtt/light1".to_string(),
+                state: SwitchState::On,
+                brightness: 255,
+            }
+        )
+    }
+
+    #[test]
+    fn test_trigger_command3() {
+        let mut strategy = create_test_setup();
+        strategy.set_disabled_switches(vec!["zigbee2mqtt/light1".to_string()]);
+        let commands = strategy.trigger_commands(false);
+        assert!(!commands.is_empty());
+        assert_eq!(
+            commands.get(0).unwrap(),
+            &SwitchCommand {
+                topic: "zigbee2mqtt/light1".to_string(),
+                state: SwitchState::Off,
+                brightness: 255,
+            }
+        )
+    }
+
+    #[test]
+    fn test_trigger_command4() {
+        let mut strategy = create_test_setup();
+        strategy.current_room = Some("room1".to_string());
+        let mut sensors = strategy.room_sensors.get_mut("room1").unwrap();
+        sensors.get_mut("motion1").unwrap().state = SensorMemoryState::Present;
+        let commands = strategy.trigger_commands(false);
+        assert!(!commands.is_empty());
+        assert_eq!(
+            commands.get(0).unwrap(),
+            &SwitchCommand {
+                topic: "zigbee2mqtt/light1".to_string(),
+                state: SwitchState::On,
+                brightness: 255,
+            }
+        );
+        strategy.set_ignored_switches(vec!["zigbee2mqtt/light1".to_string()]);
+        let commands = strategy.trigger_commands(false);
+        assert!(commands.is_empty());
     }
 }
