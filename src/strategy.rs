@@ -43,6 +43,10 @@ pub struct Strategy {
 
     /// switch topics which should be permanent disabled
     disabled_switches: Vec<String>,
+    /// switch topics which should be permanent enabled
+    enabled_switches: Vec<String>,
+    /// switch topics which should be ignored
+    ignored_switches: Vec<String>,
 
     /// current brightness
     brightness: u8,
@@ -101,17 +105,25 @@ impl Strategy {
             warn!("look ahead is smaller than current room threshold, lights will be turned off before current room detections is calculated")
         }
 
-        let (brightness, disabled_switches, room_tracking_enabled) = configuration
+        let (
+            brightness,
+            disabled_switches,
+            enabled_switches,
+            ignored_switches,
+            room_tracking_enabled,
+        ) = configuration
             .scenes
             .get(0)
             .map(|default_scene| {
                 (
                     default_scene.brightness.clone(),
-                    default_scene.exclude_switches.clone(),
+                    default_scene.disabled_switches.clone(),
+                    default_scene.enabled_switches.clone(),
+                    default_scene.ignored_switches.clone(),
                     default_scene.room_tracking_enabled.clone(),
                 )
             })
-            .unwrap_or((255, vec![], true));
+            .unwrap_or((255, vec![], vec![], vec![], true));
 
         Strategy {
             room_sensors,
@@ -120,6 +132,8 @@ impl Strategy {
             room_state: HashMap::new(),
             current_room: None,
             disabled_switches,
+            enabled_switches,
+            ignored_switches,
             brightness,
             current_room_threshold: Duration::from_secs(current_room_threshold),
             room_tracking_enabled,
@@ -284,6 +298,10 @@ impl Strategy {
             let mut should_state = None;
             if self.disabled_switches.contains(&switch.topic) {
                 should_state = Some(Off);
+            } else if self.enabled_switches.contains(&switch.topic) {
+                should_state = Some(On);
+            } else if self.ignored_switches.contains(&switch.topic) {
+                continue;
             } else {
                 'find_should_state: for room in switch.rooms.iter() {
                     if Some(room) == self.current_room.as_ref() && self.room_tracking_enabled {
@@ -367,6 +385,14 @@ impl Strategy {
 
     pub fn set_disabled_switches(&mut self, disabled_switches: Vec<String>) {
         self.disabled_switches = disabled_switches;
+    }
+
+    pub fn set_enabled_switches(&mut self, enabled_switches: Vec<String>) {
+        self.enabled_switches = enabled_switches;
+    }
+
+    pub fn set_ignored_switches(&mut self, ignored_switches: Vec<String>) {
+        self.ignored_switches = ignored_switches;
     }
 
     /// the current state of the room.
@@ -481,7 +507,7 @@ mod tests {
             ],
             switches: vec![create_light_switch("light1", vec!["room1".to_string()])],
         };
-        let mut strategy = Strategy::new(&configuration);
+        let strategy = Strategy::new(&configuration);
 
         // test if sensors are proper initialized
         let map = strategy.get_room_state(Duration::from_secs(0));
