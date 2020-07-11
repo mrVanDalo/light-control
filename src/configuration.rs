@@ -370,6 +370,9 @@ pub struct Scene {
     /// tracking enabled or not
     #[serde(default = "Scene::default_room_tracking_enabled")]
     pub room_tracking_enabled: bool,
+    /// ignore these sensors
+    #[serde(default)]
+    pub ignored_sensors: Vec<String>,
 }
 
 impl Scene {
@@ -447,6 +450,7 @@ mod test_scene {
             enabled_switches: vec!["test2".to_string()],
             ignored_switches: vec!["test3".to_string()],
             room_tracking_enabled: false,
+            ignored_sensors: vec![],
         };
         match scene.verify() {
             Err(_) => panic!("verification failed but it shouldn't"),
@@ -463,6 +467,7 @@ mod test_scene {
             enabled_switches: vec!["test1".to_string()],
             ignored_switches: vec!["test3".to_string()],
             room_tracking_enabled: false,
+            ignored_sensors: vec![],
         };
         match scene.verify() {
             Ok(_) => panic!("verification successful but it shouldn't"),
@@ -479,6 +484,7 @@ mod test_scene {
             enabled_switches: vec!["test2".to_string()],
             ignored_switches: vec!["test2".to_string()],
             room_tracking_enabled: false,
+            ignored_sensors: vec![],
         };
         match scene.verify() {
             Ok(_) => panic!("verification successful but it shouldn't"),
@@ -495,6 +501,7 @@ mod test_scene {
             enabled_switches: vec!["test2".to_string()],
             ignored_switches: vec!["test1".to_string()],
             room_tracking_enabled: false,
+            ignored_sensors: vec![],
         };
         match scene.verify() {
             Ok(_) => panic!("verification successful but it shouldn't"),

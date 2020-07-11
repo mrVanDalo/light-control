@@ -63,6 +63,9 @@ pub struct Strategy {
 
     /// weather or not current_room should stay on or not
     room_tracking_enabled: bool,
+
+    /// ignore these sensors
+    ignored_sensors: Vec<String>,
 }
 
 impl Strategy {
@@ -112,6 +115,7 @@ impl Strategy {
             enabled_switches,
             ignored_switches,
             room_tracking_enabled,
+            ignored_sensors,
         ) = configuration
             .scenes
             .get(0)
@@ -122,9 +126,10 @@ impl Strategy {
                     default_scene.enabled_switches.clone(),
                     default_scene.ignored_switches.clone(),
                     default_scene.room_tracking_enabled.clone(),
+                    default_scene.ignored_sensors.clone(),
                 )
             })
-            .unwrap_or((255, vec![], vec![], vec![], true));
+            .unwrap_or((255, vec![], vec![], vec![], true, vec![]));
 
         Strategy {
             room_sensors,
@@ -138,6 +143,7 @@ impl Strategy {
             brightness,
             current_room_threshold: Duration::from_secs(current_room_threshold),
             room_tracking_enabled,
+            ignored_sensors,
         }
     }
 
@@ -410,7 +416,10 @@ impl Strategy {
             let mut current_room_state: SensorMemoryNaiveState =
                 SensorMemoryNaiveState::Uninitialized;
 
-            'room_state: for (_topic, sensor_memory) in room_sensors.iter() {
+            'room_state: for (topic, sensor_memory) in room_sensors.iter() {
+                if self.ignored_sensors.contains(topic) {
+                    continue;
+                }
                 match (
                     &current_room_state,
                     &sensor_memory.get_naive_state(look_ahead),
@@ -456,7 +465,7 @@ impl Strategy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::configuration::{Credentials, Sensor};
+    use crate::configuration::{Credentials, Scene, Sensor};
     use crate::dummy_configuration::create_light_switch;
     use std::thread;
     use std::time::Duration;
@@ -495,13 +504,17 @@ mod tests {
     }
 
     fn create_test_setup() -> Strategy {
+        create_test_setup_with_scene(vec![])
+    }
+
+    fn create_test_setup_with_scene(scenes: Vec<Scene>) -> Strategy {
         let configuration = Configuration {
             credentials: Credentials {
                 host: "".to_string(),
                 user: "".to_string(),
                 password: "".to_string(),
             },
-            scenes: vec![],
+            scenes,
             sensors: vec![
                 create_sensor("motion1", "room1".to_string(), 10),
                 create_sensor("motion2", "room1".to_string(), 10),
@@ -601,6 +614,96 @@ mod tests {
     }
 
     #[test]
+    fn test_get_room_state_ignored_sensors() {
+        let scene = Scene {
+            name: "test".to_string(),
+            brightness: 255,
+            disabled_switches: vec![],
+            enabled_switches: vec![],
+            ignored_switches: vec![],
+            room_tracking_enabled: false,
+            ignored_sensors: vec!["motion1".to_string()],
+        };
+        let mut strategy = create_test_setup_with_scene(vec![scene]);
+        let motion_1_sensor = strategy
+            .room_sensors
+            .get_mut("room1")
+            .unwrap()
+            .get_mut("motion1");
+        assert!(motion_1_sensor.is_some());
+        let motion_1_sensor = motion_1_sensor.unwrap();
+
+        motion_1_sensor.state = SensorMemoryState::Present;
+        let map = strategy.get_room_state(Duration::from_secs(0));
+        match map.get("room1").unwrap() {
+            SensorMemoryNaiveState::Uninitialized => {}
+            _ => panic!("should never happen"),
+        }
+    }
+
+    #[test]
+    fn test_get_room_state_ignore_all_sensors_in_room() {
+        let scene = Scene {
+            name: "test".to_string(),
+            brightness: 255,
+            disabled_switches: vec![],
+            enabled_switches: vec![],
+            ignored_switches: vec![],
+            room_tracking_enabled: false,
+            ignored_sensors: vec!["motion1".to_string(), "motion2".to_string()],
+        };
+        let mut strategy = create_test_setup_with_scene(vec![scene]);
+        let mut room1 = strategy.room_sensors.get_mut("room1").unwrap();
+
+        let motion_1_sensor = room1.get_mut("motion1");
+        assert!(motion_1_sensor.is_some());
+        let motion_1_sensor = motion_1_sensor.unwrap();
+        motion_1_sensor.state = SensorMemoryState::Present;
+
+        let motion_2_sensor = room1.get_mut("motion2");
+        assert!(motion_2_sensor.is_some());
+        let motion_2_sensor = motion_2_sensor.unwrap();
+
+        motion_2_sensor.state = SensorMemoryState::Present;
+        let map = strategy.get_room_state(Duration::from_secs(0));
+        match map.get("room1").unwrap() {
+            SensorMemoryNaiveState::Uninitialized => {}
+            _ => panic!("should never happen"),
+        }
+    }
+
+    #[test]
+    fn test_get_room_state_ignore_one_sensors_in_room_with_presents() {
+        let scene = Scene {
+            name: "test".to_string(),
+            brightness: 255,
+            disabled_switches: vec![],
+            enabled_switches: vec![],
+            ignored_switches: vec![],
+            room_tracking_enabled: false,
+            ignored_sensors: vec!["motion1".to_string()],
+        };
+        let mut strategy = create_test_setup_with_scene(vec![scene]);
+        let mut room1 = strategy.room_sensors.get_mut("room1").unwrap();
+
+        let motion_1_sensor = room1.get_mut("motion1");
+        assert!(motion_1_sensor.is_some());
+        let motion_1_sensor = motion_1_sensor.unwrap();
+        motion_1_sensor.state = SensorMemoryState::Present;
+
+        let motion_2_sensor = room1.get_mut("motion2");
+        assert!(motion_2_sensor.is_some());
+        let motion_2_sensor = motion_2_sensor.unwrap();
+
+        motion_2_sensor.state = SensorMemoryState::Present;
+        let map = strategy.get_room_state(Duration::from_secs(0));
+        match map.get("room1").unwrap() {
+            SensorMemoryNaiveState::Present => {}
+            _ => panic!("should never happen"),
+        }
+    }
+
+    #[test]
     fn test_trigger_command1() {
         let mut strategy = create_test_setup();
         let commands = strategy.trigger_commands(false);
@@ -643,7 +746,7 @@ mod tests {
     fn test_trigger_command4() {
         let mut strategy = create_test_setup();
         strategy.current_room = Some("room1".to_string());
-        let mut sensors = strategy.room_sensors.get_mut("room1").unwrap();
+        let sensors = strategy.room_sensors.get_mut("room1").unwrap();
         sensors.get_mut("motion1").unwrap().state = SensorMemoryState::Present;
         let commands = strategy.trigger_commands(false);
         assert!(!commands.is_empty());

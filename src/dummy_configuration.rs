@@ -34,6 +34,7 @@ pub fn hardcoded_config() -> Configuration {
             enabled_switches: vec![],
             ignored_switches: vec![],
             disabled_switches: vec![],
+            ignored_sensors: vec![],
         },
         Scene {
             room_tracking_enabled: false,
@@ -47,6 +48,7 @@ pub fn hardcoded_config() -> Configuration {
                 "stat/PAL04/RESULT".to_string(),
                 "zigbee2mqtt/light_2".to_string(),
             ],
+            ignored_sensors: vec![],
         },
     ];
 
