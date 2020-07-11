@@ -402,6 +402,10 @@ impl Strategy {
         self.ignored_switches = ignored_switches;
     }
 
+    pub fn set_ignored_sensors(&mut self, ignored_sensors: Vec<String>) {
+        self.ignored_sensors = ignored_sensors;
+    }
+
     /// the current state of the room.
     /// sensor delays are taken into account
     ///
