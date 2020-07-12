@@ -105,6 +105,8 @@ zigbee2mqtt/motion_sensor_7 {"battery":100,"voltage":3015,"linkquality":99,"occu
 * `ignored_switches`:
     list all switch topics which should not be set.
 * `room_tracking_enabled`: tracking enabled or not
+* `ignored_sensors`:
+    list all sensor topics which should be ignored to detect room presents.
 
 ## Interact via mqtt
 

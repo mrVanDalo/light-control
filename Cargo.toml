@@ -1,6 +1,6 @@
 [package]
 name = "light-control"
-version = "2.0.0"
+version = "2.1.0"
 authors = ["Ingolf Wagner <contact@ingolf-wagner.de>"]
 edition = "2018"
 description = "mqtt light control"
@@ -14,7 +14,6 @@ exclude = [ "shell.nix", "images", ".gitignore" ]
 [dependencies]
 log = "0.4"
 env_logger = "0.7"
-futures = "0.1"
 mustache = "0.9"
 serde_json = "1.0"
 structopt = "0.3"

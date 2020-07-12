@@ -160,6 +160,7 @@ fn main() {
                                         ignored_switches: scene.ignored_switches.clone(),
                                         brightness: scene.brightness,
                                         enable_room_tracking: scene.room_tracking_enabled,
+                                        ignored_sensors: scene.ignored_sensors.clone(),
                                     })
                                 });
                         }
@@ -246,12 +247,15 @@ fn main() {
                 ignored_switches,
                 brightness,
                 enable_room_tracking,
+                ignored_sensors,
             } => {
                 strategy.set_brightness(brightness);
                 strategy.set_room_tracking_enabled(enable_room_tracking);
                 strategy.set_disabled_switches(disabled_switches);
                 strategy.set_enabled_switches(enabled_switches);
                 strategy.set_ignored_switches(ignored_switches);
+                strategy.set_ignored_sensors(ignored_sensors);
+
                 for switch_command in strategy.trigger_commands(true) {
                     publish_sender.send(switch_command);
                 }
@@ -285,6 +289,7 @@ pub enum UpdateMessage {
         ignored_switches: Vec<String>,
         brightness: u8,
         enable_room_tracking: bool,
+        ignored_sensors: Vec<String>,
     },
     /// Send a State change
     SwitchChange(Instant, SwitchChangeContent),
